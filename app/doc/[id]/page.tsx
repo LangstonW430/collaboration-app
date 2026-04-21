@@ -6,8 +6,8 @@ import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
+import type { DocumentWithRole } from '@/components/editor/DocumentEditor'
 
-// Prevent SSR for TipTap — it relies on browser APIs
 const DocumentEditor = dynamic(
   () => import('@/components/editor/DocumentEditor'),
   { ssr: false, loading: () => <EditorSkeleton /> }
@@ -23,15 +23,13 @@ export default function DocPage() {
     if (!isLoading && !isAuthenticated) router.replace('/auth/login')
   }, [isAuthenticated, isLoading, router])
 
-  // Skip query until we know the user is authenticated
   const document = useQuery(
     api.documents.get,
     isAuthenticated ? { id } : 'skip'
-  )
+  ) as DocumentWithRole | null | undefined
 
   if (isLoading || !isAuthenticated) return <EditorSkeleton />
 
-  // document === null means not found or wrong owner
   if (document === null) {
     router.replace('/dashboard')
     return null

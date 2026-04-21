@@ -7,11 +7,14 @@ import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { formatDate } from '@/lib/utils'
 
+type UserRole = 'owner' | 'editor' | 'viewer'
+
 interface DocumentCardProps {
-  document: Doc<'documents'>
+  document: Doc<'documents'> & { userRole: UserRole }
 }
 
 export default function DocumentCard({ document }: DocumentCardProps) {
+  const isOwner = document.userRole === 'owner'
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [renaming, setRenaming] = useState(false)
@@ -71,50 +74,61 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     <Link href={`/doc/${document._id}`}>
       <div className="relative bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group h-full flex flex-col">
 
-        {/* Delete button — shown on hover */}
-        <div
-          className="absolute top-2.5 right-2.5 flex items-center gap-1"
-          onClick={e => e.preventDefault()}
-        >
-          {confirming ? (
-            <>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-xs px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
-                {deleting ? 'Deleting…' : 'Delete'}
-              </button>
-              <button
-                onClick={handleCancelDelete}
-                className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={handleRenameClick}
-                className="p-1.5 rounded-md text-gray-300 hover:text-blue-500 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-all"
-                title="Rename document"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-              <button
-                onClick={handleDelete}
-                className="p-1.5 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                title="Delete document"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
+        {/* Owner action buttons */}
+        {isOwner && (
+          <div
+            className="absolute top-2.5 right-2.5 flex items-center gap-1"
+            onClick={e => e.preventDefault()}
+          >
+            {confirming ? (
+              <>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-xs px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </button>
+                <button
+                  onClick={handleCancelDelete}
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleRenameClick}
+                  className="p-1.5 rounded-md text-gray-300 hover:text-blue-500 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Rename document"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="p-1.5 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Delete document"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Shared badge for non-owner docs */}
+        {!isOwner && (
+          <div className="absolute top-2.5 right-2.5">
+            <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium capitalize">
+              {document.userRole}
+            </span>
+          </div>
+        )}
 
         <div className="flex-1 w-full h-28 bg-gray-50 rounded-lg mb-3 p-3 overflow-hidden">
           {preview ? (
@@ -124,7 +138,7 @@ export default function DocumentCard({ document }: DocumentCardProps) {
           )}
         </div>
         <div>
-          {renaming ? (
+          {renaming && isOwner ? (
             <input
               ref={inputRef}
               value={titleValue}

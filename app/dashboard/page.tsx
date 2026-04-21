@@ -4,9 +4,9 @@ import { useQuery, useConvexAuth } from 'convex/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { api } from '@/convex/_generated/api'
-import type { Doc } from '@/convex/_generated/dataModel'
 import DocumentCard from '@/components/dashboard/DocumentCard'
 import NewDocumentButton from '@/components/dashboard/NewDocumentButton'
+import InvitesBanner from '@/components/dashboard/InvitesBanner'
 import Header from '@/components/ui/Header'
 
 export default function DashboardPage() {
@@ -17,9 +17,7 @@ export default function DashboardPage() {
     if (!isLoading && !isAuthenticated) router.replace('/auth/login')
   }, [isAuthenticated, isLoading, router])
 
-  // useQuery returns undefined while loading, then the array.
-  // Convex auto-re-runs this query whenever documents change — zero extra code.
-  const documents = useQuery(api.documents.list) as Doc<'documents'>[] | undefined
+  const documents = useQuery(api.documents.list)
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -34,6 +32,8 @@ export default function DashboardPage() {
       <Header />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        <InvitesBanner />
+
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold text-gray-900">My Documents</h1>
           <NewDocumentButton />

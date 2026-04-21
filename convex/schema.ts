@@ -14,16 +14,25 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_owner", ["ownerId"]),
 
-  // Phase 2: collaborator access control (not used in MVP)
   collaborators: defineTable({
     docId: v.id("documents"),
     userId: v.id("users"),
     role: v.union(
-      v.literal("owner"),
       v.literal("editor"),
       v.literal("viewer")
     ),
   })
     .index("by_doc", ["docId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_doc_and_user", ["docId", "userId"]),
+
+  invites: defineTable({
+    docId: v.id("documents"),
+    inviterUserId: v.id("users"),
+    inviteeEmail: v.string(),
+    role: v.union(v.literal("editor"), v.literal("viewer")),
+    status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("declined")),
+  })
+    .index("by_doc_and_status", ["docId", "status"])
+    .index("by_invitee_email_and_status", ["inviteeEmail", "status"]),
 });
