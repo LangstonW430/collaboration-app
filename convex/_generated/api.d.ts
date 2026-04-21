@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as collaborators from "../collaborators.js";
 import type * as documents from "../documents.js";
+import type * as files from "../files.js";
 import type * as http from "../http.js";
 
 import type {
@@ -23,6 +24,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   collaborators: typeof collaborators;
   documents: typeof documents;
+  files: typeof files;
   http: typeof http;
 }>;
 
