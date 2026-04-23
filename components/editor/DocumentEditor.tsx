@@ -22,6 +22,7 @@ import Youtube from '@tiptap/extension-youtube'
 import CharacterCount from '@tiptap/extension-character-count'
 import Typography from '@tiptap/extension-typography'
 import { common, createLowlight } from 'lowlight'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -29,6 +30,8 @@ import type { Doc } from '@/convex/_generated/dataModel'
 import type { SaveStatus } from '@/types'
 import { ConvexImageExtension } from './extensions/ConvexImageExtension'
 import { ChartExtension } from './extensions/ChartExtension'
+import { CommentMark } from './extensions/CommentMark'
+import CommentsSidebar from './CommentsSidebar'
 
 const lowlight = createLowlight(common)
 
@@ -51,7 +54,7 @@ interface DocumentEditorProps {
   document: DocumentWithRole
 }
 
-type DropdownName = 'color' | 'highlight' | 'heading' | 'insert' | 'align'
+type DropdownName = 'color' | 'highlight' | 'heading' | 'insert' | 'align' | 'comment'
 interface DropdownState {
   name: DropdownName
   top: number
@@ -65,13 +68,17 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   const [title, setTitle] = useState(doc.title)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [showInvite, setShowInvite] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false)
   const [dropdown, setDropdown] = useState<DropdownState | null>(null)
+  const [commentText, setCommentText] = useState('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropdownPanelRef = useRef<HTMLDivElement>(null)
+  const pendingCommentRef = useRef<{ from: number; to: number; quoted: string } | null>(null)
 
   const updateDocument = useMutation(api.documents.update)
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
+  const createComment = useMutation(api.comments.create)
 
   // Close dropdown on outside click or Escape
   useEffect(() => {
@@ -164,6 +171,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       Typography,
       ConvexImageExtension,
       ChartExtension,
+      CommentMark,
     ],
     content: doc.content || '',
     editable: canEdit,
@@ -216,6 +224,42 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
 
   function insertHr() {
     editor?.chain().focus().setHorizontalRule().run()
+    closeDropdown()
+  }
+
+  function openCommentPanel(e: React.MouseEvent<HTMLButtonElement>) {
+    if (!editor) return
+    const { from, to, empty } = editor.state.selection
+    if (empty) return
+    const quoted = editor.state.doc.textBetween(from, to, ' ')
+    pendingCommentRef.current = { from, to, quoted }
+    setCommentText('')
+    if (dropdown?.name === 'comment') {
+      setDropdown(null)
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect()
+      setDropdown({ name: 'comment', top: rect.bottom + 4, left: rect.left })
+    }
+  }
+
+  async function submitComment() {
+    if (!editor || !pendingCommentRef.current || !commentText.trim()) return
+    const { from, to, quoted } = pendingCommentRef.current
+    const markId = crypto.randomUUID()
+    editor.chain().setTextSelection({ from, to }).setMark('comment', { commentId: markId }).run()
+    try {
+      await createComment({
+        docId: doc._id,
+        markId,
+        text: commentText.trim(),
+        quotedText: quoted,
+      })
+      setShowSidebar(true)
+    } catch (err) {
+      console.error('Failed to save comment', err)
+    }
+    pendingCommentRef.current = null
+    setCommentText('')
     closeDropdown()
   }
 
@@ -345,6 +389,22 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
             Insert
           </button>
 
+          <Sep />
+
+          {/* Add comment (owners + editors) */}
+          {canEdit && (
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={openCommentPanel}
+              title="Add comment (select text first)"
+              className={`shrink-0 p-1.5 rounded-md transition-colors ${isOpen('comment') ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+            </button>
+          )}
+
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
@@ -368,6 +428,19 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
             {!canEdit && (
               <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md">View only</span>
             )}
+
+            {/* Comments sidebar toggle */}
+            <button
+              onClick={() => setShowSidebar((s) => !s)}
+              title="Toggle comments"
+              className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ${showSidebar ? 'bg-amber-100 text-amber-700' : 'text-gray-500 hover:bg-gray-100'}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+              Comments
+            </button>
+
             {userRole === 'owner' && (
               <button
                 onClick={() => setShowInvite(true)}
@@ -397,7 +470,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
         )}
       </div>
 
-      {/* ── Fixed dropdown panels (rendered outside overflow container) ────── */}
+      {/* ── Fixed dropdown panels ─────────────────────────────────────────────── */}
       {dropdown && (
         <div
           ref={dropdownPanelRef}
@@ -454,26 +527,78 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
               <InsertItem label="Divider" icon="—" onClick={insertHr} />
             </div>
           )}
+
+          {dropdown.name === 'comment' && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-xl p-3 w-64">
+              {pendingCommentRef.current?.quoted && (
+                <p className="text-xs text-gray-500 border-l-2 border-amber-300 pl-2 mb-2.5 italic line-clamp-2">
+                  {pendingCommentRef.current.quoted}
+                </p>
+              )}
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Add a comment…"
+                className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 mb-2 outline-none focus:border-blue-400 resize-none"
+                rows={3}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitComment()
+                }}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={submitComment}
+                  disabled={!commentText.trim()}
+                  className="flex-1 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+                >
+                  Comment
+                </button>
+                <button
+                  onClick={() => { closeDropdown(); pendingCommentRef.current = null }}
+                  className="flex-1 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5 text-center">⌘+Enter to submit</p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Document body */}
-      <div className="flex-1 max-w-3xl w-full mx-auto px-8 py-12">
-        <input
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          readOnly={!canEdit}
-          placeholder="Untitled Document"
-          className={`w-full text-4xl font-bold text-gray-900 bg-transparent border-none outline-none mb-8 placeholder:text-gray-200 ${!canEdit ? 'cursor-default' : ''}`}
-        />
-        <div className="tiptap-editor">
-          <EditorContent editor={editor} />
+      {/* Content row */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Document body */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl w-full mx-auto px-8 py-12">
+            <input
+              type="text"
+              value={title}
+              onChange={handleTitleChange}
+              readOnly={!canEdit}
+              placeholder="Untitled Document"
+              className={`w-full text-4xl font-bold text-gray-900 bg-transparent border-none outline-none mb-8 placeholder:text-gray-200 ${!canEdit ? 'cursor-default' : ''}`}
+            />
+            <div className="tiptap-editor">
+              <EditorContent editor={editor} />
+            </div>
+          </div>
         </div>
+
+        {/* Comments sidebar */}
+        {showSidebar && (
+          <CommentsSidebar
+            editor={editor}
+            docId={doc._id}
+            canEdit={canEdit}
+            onClose={() => setShowSidebar(false)}
+          />
+        )}
       </div>
 
       {/* Status bar */}
-      <div className="border-t border-gray-100 px-8 py-2 flex items-center gap-4 text-xs text-gray-400">
+      <div className="border-t border-gray-100 px-8 py-2 flex items-center gap-4 text-xs text-gray-400 shrink-0">
         <span>{wordCount} word{wordCount !== 1 ? 's' : ''}</span>
         <span>{charCount} character{charCount !== 1 ? 's' : ''}</span>
       </div>
@@ -514,8 +639,6 @@ function Btn({ onClick, active, title, disabled, children }: BtnProps) {
   )
 }
 
-
-
 function TblBtn({ onClick, children, danger }: { onClick: () => void; children: React.ReactNode; danger?: boolean }) {
   return (
     <button
@@ -545,6 +668,4 @@ function InsertItem({ label, icon, onClick }: { label: string; icon: string; onC
   )
 }
 
-// Lazy-load InviteModal (already defined in its own file)
-import dynamic from 'next/dynamic'
 const InviteModalDynamic = dynamic(() => import('./InviteModal'), { ssr: false })

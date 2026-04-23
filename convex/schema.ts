@@ -35,4 +35,16 @@ export default defineSchema({
   })
     .index("by_doc_and_status", ["docId", "status"])
     .index("by_invitee_email_and_status", ["inviteeEmail", "status"]),
+
+  comments: defineTable({
+    docId: v.id("documents"),
+    authorId: v.id("users"),
+    markId: v.string(),
+    text: v.string(),
+    quotedText: v.string(),
+    resolved: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_doc", ["docId"])
+    .index("by_doc_and_resolved", ["docId", "resolved"]),
 });

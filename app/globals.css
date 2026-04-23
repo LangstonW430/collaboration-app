@@ -253,6 +253,16 @@ mark {
   margin: 0.5rem 0;
 }
 
+/* ── Inline comments ─────────────────────────────────────────────────────── */
+
+.tiptap-editor .ProseMirror mark.comment-mark {
+  background-color: rgba(251, 191, 36, 0.25);
+  border-bottom: 2px solid rgba(251, 191, 36, 0.7);
+  border-radius: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
 /* ── Drag & drop ─────────────────────────────────────────────────────────── */
 
 .tiptap-editor .ProseMirror .ProseMirror-dropcursor {
