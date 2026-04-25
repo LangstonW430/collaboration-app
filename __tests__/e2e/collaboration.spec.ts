@@ -20,9 +20,9 @@ test.describe('Collaboration', () => {
     await page.getByRole('button', { name: /new|create/i }).first().click()
     await page.waitForURL(/\/doc\//, { timeout: 15_000 })
 
-    // The "Share" button is only visible to owners
+    // The "Share" button is only visible to owners; wait for Convex userRole query to load
     const shareBtn = page.getByRole('button', { name: 'Share' })
-    await expect(shareBtn).toBeVisible()
+    await expect(shareBtn).toBeVisible({ timeout: 10_000 })
     await shareBtn.click()
 
     // Modal should open with an email input
@@ -62,10 +62,16 @@ test.describe('Collaboration', () => {
   // ── viewer sees the document ───────────────────────────────────────────────
 
   test('two users can have the same document open simultaneously', async () => {
-    const browser = await chromium.launch()
+    test.skip(
+      !process.env.E2E_USER2_EMAIL,
+      'Skipped: requires two test accounts (E2E_USER2_EMAIL)'
+    )
 
-    const aliceContext = await browser.newContext()
-    const bobContext = await browser.newContext()
+    const browser = await chromium.launch()
+    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+
+    const aliceContext = await browser.newContext({ baseURL })
+    const bobContext = await browser.newContext({ baseURL })
 
     const alicePage = await aliceContext.newPage()
     const bobPage = await bobContext.newPage()

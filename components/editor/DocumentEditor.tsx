@@ -73,6 +73,17 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
 
   const [title, setTitle] = useState(doc.title)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
+
+  // Keep the title input in sync with remote changes (e.g. another user renaming the doc).
+  // Only skips the sync while a local save is in flight to avoid overwriting typed text.
+  const saveStatusRef = useRef<SaveStatus>('saved')
+  saveStatusRef.current = saveStatus
+  useEffect(() => {
+    if (saveStatusRef.current !== 'saving') {
+      setTitle(doc.title)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.title])
   const [showInvite, setShowInvite] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
   const [dropdown, setDropdown] = useState<DropdownState | null>(null)

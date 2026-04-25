@@ -32,9 +32,9 @@ test.describe('Document management', () => {
   test('new document starts with default title', async ({ page }) => {
     await page.getByRole('button', { name: /new|create/i }).first().click()
     await page.waitForURL(/\/doc\//, { timeout: 15_000 })
-    // The title input should contain "Untitled Document"
+    // Wait for Convex to load the document and render the editor
     const titleInput = page.getByPlaceholder('Untitled Document')
-    await expect(titleInput).toBeVisible()
+    await expect(titleInput).toBeVisible({ timeout: 10_000 })
   })
 
   // ── edit document ──────────────────────────────────────────────────────────
@@ -111,27 +111,26 @@ test.describe('Document management', () => {
   // ── delete document ────────────────────────────────────────────────────────
 
   test('user can delete a document from the dashboard', async ({ page }) => {
+    test.setTimeout(60_000)
     const title = `Delete Me ${Date.now()}`
 
     // Create a document to delete
     await page.getByRole('button', { name: /new|create/i }).first().click()
     await page.waitForURL(/\/doc\//, { timeout: 15_000 })
+    await expect(page.getByPlaceholder('Untitled Document')).toBeVisible({ timeout: 10_000 })
     await page.getByPlaceholder('Untitled Document').fill(title)
     await expect(page.getByText('Saved')).toBeVisible({ timeout: 10_000 })
     await page.getByTitle('Back to dashboard').click()
     await page.waitForURL('**/dashboard', { timeout: 10_000 })
 
-    // Find the document card and open its context menu / delete button
+    // Find the document card and click the delete icon (title="Delete document")
     const card = page.locator('[data-testid="document-card"]').filter({ hasText: title }).first()
+    await expect(card).toBeVisible({ timeout: 15_000 })
     await card.hover()
-    const deleteButton = card.getByRole('button', { name: /delete/i })
-    await deleteButton.click()
+    await card.getByTitle('Delete document').click()
 
-    // Confirm deletion if prompted
-    const confirm = page.getByRole('button', { name: /confirm|yes|delete/i })
-    if (await confirm.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await confirm.click()
-    }
+    // Confirm deletion — second click on the "Delete" text button inside the same card
+    await card.getByRole('button', { name: 'Delete' }).click()
 
     await expect(page.getByText(title)).not.toBeVisible({ timeout: 8_000 })
   })

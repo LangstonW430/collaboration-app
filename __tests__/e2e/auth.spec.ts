@@ -89,7 +89,7 @@ test.describe('Authentication', () => {
   test('signup page has expected form elements', async ({ page }) => {
     await page.goto('/auth/signup')
     await expect(page.getByLabel('Email')).toBeVisible()
-    await expect(page.getByLabel('Password')).toBeVisible()
+    await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Confirm password')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
   })
@@ -97,7 +97,7 @@ test.describe('Authentication', () => {
   test('signup shows error when passwords do not match', async ({ page }) => {
     await page.goto('/auth/signup')
     await page.getByLabel('Email').fill('newuser@example.com')
-    await page.getByLabel('Password').fill('Password1!')
+    await page.getByLabel('Password', { exact: true }).fill('Password1!')
     await page.getByLabel('Confirm password').fill('DifferentPassword!')
     await page.getByRole('button', { name: 'Create account' }).click()
     await expect(page.getByText(/passwords do not match/i)).toBeVisible()
@@ -106,7 +106,7 @@ test.describe('Authentication', () => {
   test('signup shows error when password is too short', async ({ page }) => {
     await page.goto('/auth/signup')
     await page.getByLabel('Email').fill('newuser@example.com')
-    await page.getByLabel('Password').fill('short')
+    await page.getByLabel('Password', { exact: true }).fill('short')
     await page.getByLabel('Confirm password').fill('short')
     await page.getByRole('button', { name: 'Create account' }).click()
     await expect(page.getByText(/8 characters/i)).toBeVisible()
