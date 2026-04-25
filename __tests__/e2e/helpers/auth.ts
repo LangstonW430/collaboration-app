@@ -25,6 +25,10 @@ export async function signIn(
 }
 
 export async function signOut(page: Page) {
+  // Sign out button lives in the dashboard Header; navigate there first if needed
+  if (!page.url().includes('/dashboard')) {
+    await page.goto('/dashboard')
+  }
   await page.getByRole('button', { name: 'Sign out' }).click()
   await page.waitForURL('**/auth/login', { timeout: 10_000 })
 }

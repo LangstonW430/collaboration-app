@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -20,6 +20,12 @@ export default function DocumentCard({ document }: DocumentCardProps) {
   const [renaming, setRenaming] = useState(false)
   const [titleValue, setTitleValue] = useState(document.title || 'Untitled Document')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Sync displayed title when Convex pushes a remote update (e.g. owner renames
+  // from another session). Skip while the inline rename input is open.
+  useEffect(() => {
+    if (!renaming) setTitleValue(document.title || 'Untitled Document')
+  }, [document.title, renaming])
   const removeDocument = useMutation(api.documents.remove)
   const updateDocument = useMutation(api.documents.update)
 
@@ -72,7 +78,7 @@ export default function DocumentCard({ document }: DocumentCardProps) {
 
   return (
     <Link href={`/doc/${document._id}`}>
-      <div className="relative bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group h-full flex flex-col">
+      <div data-testid="document-card" className="relative bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group h-full flex flex-col">
 
         {/* Owner action buttons */}
         {isOwner && (
