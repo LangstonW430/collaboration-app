@@ -3,6 +3,15 @@ import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { z } from "zod";
+
+const inviteSchema = z.object({
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .max(254, 'Email address is too long')
+    .email('Please enter a valid email address'),
+});
 
 async function getCurrentUserEmail(
   ctx: QueryCtx | MutationCtx,
@@ -23,6 +32,13 @@ export const invite = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    const validation = inviteSchema.safeParse({ email: args.email });
+    if (!validation.success) {
+      const message = validation.error.issues[0]?.message ?? "Validation failed";
+      console.error("[collaborators.invite] Validation failure", { userId, issues: validation.error.issues });
+      throw new Error(message);
+    }
 
     const doc = await ctx.db.get(args.docId);
     if (!doc || doc.ownerId !== userId) throw new Error("Not authorized");

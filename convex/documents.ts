@@ -1,6 +1,15 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { z } from "zod";
+
+const TITLE_MAX = 500;
+const CONTENT_MAX = 1_000_000;
+
+const updateArgsSchema = z.object({
+  title: z.string().max(TITLE_MAX, `Title must be ${TITLE_MAX} characters or fewer`).optional(),
+  content: z.string().max(CONTENT_MAX, `Document exceeds the ${(CONTENT_MAX / 1000).toLocaleString()} KB size limit`).optional(),
+});
 
 /** Returns all documents the current user owns or collaborates on. */
 export const list = query({
@@ -94,6 +103,14 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    // Backend validation — independent of any client-side checks
+    const validation = updateArgsSchema.safeParse({ title: args.title, content: args.content });
+    if (!validation.success) {
+      const message = validation.error.issues[0]?.message ?? "Validation failed";
+      console.error("[documents.update] Validation failure", { userId, issues: validation.error.issues });
+      throw new Error(message);
+    }
 
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Document not found");

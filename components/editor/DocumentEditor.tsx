@@ -28,9 +28,12 @@ import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
 import type { SaveStatus } from '@/types'
-import { useConvexError } from '@/lib/hooks/useConvexError'
+import { useValidatedMutation } from '@/lib/hooks/useValidatedMutation'
 import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus'
 import { useToast } from '@/components/Toast'
+import { sanitizeHtml } from '@/lib/sanitization/sanitizeContent'
+import { checkRateLimit } from '@/lib/rateLimit'
+import { saveDocumentArgsSchema, createCommentArgsSchema } from '@/lib/validation'
 import { ConvexImageExtension } from './extensions/ConvexImageExtension'
 import { ChartExtension } from './extensions/ChartExtension'
 import { CommentMark } from './extensions/CommentMark'
@@ -83,8 +86,8 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
   const createCommentMutation = useMutation(api.comments.create)
 
-  const { execute: saveDocument } = useConvexError(updateDocumentMutation)
-  const { execute: submitCommentSafe, isLoading: isSubmittingComment } = useConvexError(createCommentMutation)
+  const { execute: saveDocument, validationErrors: saveErrors } = useValidatedMutation(updateDocumentMutation, saveDocumentArgsSchema)
+  const { execute: submitCommentSafe, isLoading: isSubmittingComment, validationErrors: commentErrors } = useValidatedMutation(createCommentMutation, createCommentArgsSchema)
   const { isOnline } = useConnectionStatus()
   const toast = useToast()
 
@@ -129,9 +132,23 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     setSaveStatus('saving')
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
-      const success = await saveDocument({ id: doc._id, ...updates })
+      const rl = checkRateLimit(doc._id)
+      if (!rl.allowed) {
+        setSaveStatus('error')
+        toast.warning(`Too many requests — please wait ${Math.ceil(rl.retryAfterMs / 1000)}s before saving again.`)
+        return
+      }
+
+      const sanitized = updates.content != null
+        ? { ...updates, content: sanitizeHtml(updates.content) }
+        : updates
+
+      const success = await saveDocument({ id: doc._id, ...sanitized })
       setSaveStatus(success ? 'saved' : 'error')
-      if (!success) toast.error('Failed to save changes. Please check your connection.')
+      if (!success) {
+        const msg = saveErrors?._root ?? saveErrors?.title ?? saveErrors?.content
+        toast.error(msg ?? 'Failed to save changes. Please check your connection.')
+      }
     }, AUTOSAVE_DELAY_MS)
   }
 
@@ -271,7 +288,8 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       setShowSidebar(true)
       toast.success('Comment added.')
     } else {
-      toast.error('Failed to save comment. Please try again.')
+      const msg = commentErrors?.text ?? commentErrors?._root
+      toast.error(msg ?? 'Failed to save comment. Please try again.')
     }
 
     pendingCommentRef.current = null

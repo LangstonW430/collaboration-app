@@ -1,6 +1,12 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { z } from 'zod'
+
+const createCommentSchema = z.object({
+  text: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment must be 2000 characters or fewer').trim(),
+  quotedText: z.string().max(500, 'Quoted text must be 500 characters or fewer'),
+})
 
 export const create = mutation({
   args: {
@@ -12,12 +18,20 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not authenticated')
+
+    const validation = createCommentSchema.safeParse({ text: args.text, quotedText: args.quotedText })
+    if (!validation.success) {
+      const message = validation.error.issues[0]?.message ?? 'Validation failed'
+      console.error('[comments.create] Validation failure', { userId, issues: validation.error.issues })
+      throw new Error(message)
+    }
+
     return await ctx.db.insert('comments', {
       docId: args.docId,
       authorId: userId,
       markId: args.markId,
-      text: args.text,
-      quotedText: args.quotedText,
+      text: validation.data.text,
+      quotedText: validation.data.quotedText,
       resolved: false,
       createdAt: Date.now(),
     })
