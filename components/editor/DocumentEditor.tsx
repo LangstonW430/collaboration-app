@@ -28,6 +28,9 @@ import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import type { Doc } from '@/convex/_generated/dataModel'
 import type { SaveStatus } from '@/types'
+import { useConvexError } from '@/lib/hooks/useConvexError'
+import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus'
+import { useToast } from '@/components/Toast'
 import { ConvexImageExtension } from './extensions/ConvexImageExtension'
 import { ChartExtension } from './extensions/ChartExtension'
 import { CommentMark } from './extensions/CommentMark'
@@ -76,9 +79,16 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   const dropdownPanelRef = useRef<HTMLDivElement>(null)
   const pendingCommentRef = useRef<{ from: number; to: number; quoted: string } | null>(null)
 
-  const updateDocument = useMutation(api.documents.update)
+  const updateDocumentMutation = useMutation(api.documents.update)
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
-  const createComment = useMutation(api.comments.create)
+  const createCommentMutation = useMutation(api.comments.create)
+
+  const { execute: saveDocument } = useConvexError(updateDocumentMutation)
+  const { execute: submitCommentSafe, isLoading: isSubmittingComment } = useConvexError(createCommentMutation)
+  const { isOnline } = useConnectionStatus()
+  const toast = useToast()
+
+  const editorEditable = canEdit && isOnline
 
   // Close dropdown on outside click or Escape
   useEffect(() => {
@@ -119,12 +129,9 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     setSaveStatus('saving')
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
-      try {
-        await updateDocument({ id: doc._id, ...updates })
-        setSaveStatus('saved')
-      } catch {
-        setSaveStatus('error')
-      }
+      const success = await saveDocument({ id: doc._id, ...updates })
+      setSaveStatus(success ? 'saved' : 'error')
+      if (!success) toast.error('Failed to save changes. Please check your connection.')
     }, AUTOSAVE_DELAY_MS)
   }
 
@@ -144,14 +151,15 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       }).run()
     } catch (err) {
       console.error('Image upload failed', err)
+      toast.error('Failed to upload image. Please try again.')
     }
-  }, [generateUploadUrl])
+  }, [generateUploadUrl, toast])
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({ codeBlock: false }),
-      Placeholder.configure({ placeholder: canEdit ? 'Start writing… (type / for commands)' : '' }),
+      Placeholder.configure({ placeholder: editorEditable ? 'Start writing… (type / for commands)' : '' }),
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Highlight.configure({ multicolor: true }),
@@ -174,7 +182,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       CommentMark,
     ],
     content: doc.content || '',
-    editable: canEdit,
+    editable: editorEditable,
     onUpdate: ({ editor }) => {
       scheduleSave({ content: editor.getHTML() })
     },
@@ -199,6 +207,10 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       },
     },
   })
+
+  useEffect(() => {
+    if (editor) editor.setEditable(editorEditable)
+  }, [editor, editorEditable])
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!canEdit) return
@@ -247,17 +259,21 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     const { from, to, quoted } = pendingCommentRef.current
     const markId = crypto.randomUUID()
     editor.chain().setTextSelection({ from, to }).setMark('comment', { commentId: markId }).run()
-    try {
-      await createComment({
-        docId: doc._id,
-        markId,
-        text: commentText.trim(),
-        quotedText: quoted,
-      })
+
+    const success = await submitCommentSafe({
+      docId: doc._id,
+      markId,
+      text: commentText.trim(),
+      quotedText: quoted,
+    })
+
+    if (success) {
       setShowSidebar(true)
-    } catch (err) {
-      console.error('Failed to save comment', err)
+      toast.success('Comment added.')
+    } else {
+      toast.error('Failed to save comment. Please try again.')
     }
+
     pendingCommentRef.current = null
     setCommentText('')
     closeDropdown()
@@ -420,8 +436,20 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-3 shrink-0">
-            {canEdit && (
-              <span className={`text-xs transition-colors ${statusConfig.cls}`}>
+            {!isOnline && (
+              <span className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Offline — editing paused
+              </span>
+            )}
+            {canEdit && isOnline && (
+              <span className={`flex items-center gap-1.5 text-xs transition-colors ${statusConfig.cls}`}>
+                {saveStatus === 'saving' && (
+                  <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
                 {statusConfig.label}
               </span>
             )}
@@ -549,9 +577,15 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
               <div className="flex gap-2">
                 <button
                   onClick={submitComment}
-                  disabled={!commentText.trim()}
-                  className="flex-1 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+                  disabled={!commentText.trim() || isSubmittingComment}
+                  className="flex-1 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
                 >
+                  {isSubmittingComment && (
+                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  )}
                   Comment
                 </button>
                 <button
@@ -601,6 +635,19 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       <div className="border-t border-gray-100 px-8 py-2 flex items-center gap-4 text-xs text-gray-400 shrink-0">
         <span>{wordCount} word{wordCount !== 1 ? 's' : ''}</span>
         <span>{charCount} character{charCount !== 1 ? 's' : ''}</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          {isOnline ? (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              <span>Connected</span>
+            </>
+          ) : (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <span className="text-amber-500">Offline</span>
+            </>
+          )}
+        </div>
       </div>
 
       {showInvite && (
