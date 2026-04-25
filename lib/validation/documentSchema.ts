@@ -12,9 +12,8 @@ export const EMAIL_MAX = 254
 
 export const documentTitleSchema = z
   .string()
-  .min(1, 'Title cannot be empty')
-  .max(TITLE_MAX, `Title must be ${TITLE_MAX} characters or fewer`)
-  .trim()
+  .transform((s) => s.trim())
+  .pipe(z.string().min(1, 'Title cannot be empty').max(TITLE_MAX, `Title must be ${TITLE_MAX} characters or fewer`))
 
 export const documentContentSchema = z
   .string()
@@ -26,16 +25,19 @@ export const documentContentSchema = z
 
 export const commentTextSchema = z
   .string()
-  .min(1, 'Comment cannot be empty')
-  .max(COMMENT_TEXT_MAX, `Comment must be ${COMMENT_TEXT_MAX} characters or fewer`)
-  .trim()
+  .transform((s) => s.trim())
+  .pipe(z.string().min(1, 'Comment cannot be empty').max(COMMENT_TEXT_MAX, `Comment must be ${COMMENT_TEXT_MAX} characters or fewer`))
 
 export const inviteEmailSchema = z
   .string()
-  .min(1, 'Email is required')
-  .max(EMAIL_MAX, 'Email address is too long')
-  .email('Please enter a valid email address')
-  .trim()
+  .transform((s) => s.trim())
+  .pipe(
+    z
+      .string()
+      .min(1, 'Email is required')
+      .max(EMAIL_MAX, 'Email address is too long')
+      .email('Please enter a valid email address')
+  )
 
 // ── Mutation-args schemas (include Convex ID fields) ──────────────────────────
 

@@ -16,6 +16,12 @@ dist-ssr
 .next/
 out/
 
+# Test output
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
