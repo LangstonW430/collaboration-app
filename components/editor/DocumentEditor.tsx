@@ -24,9 +24,7 @@ import Typography from '@tiptap/extension-typography'
 import { common, createLowlight } from 'lowlight'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import type { Doc } from '@/convex/_generated/dataModel'
+import type { Id } from '@/convex/_generated/dataModel'
 import type { SaveStatus } from '@/types'
 import { useValidatedMutation } from '@/lib/hooks/useValidatedMutation'
 import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus'
@@ -34,6 +32,7 @@ import { useToast } from '@/components/Toast'
 import { sanitizeHtml } from '@/lib/sanitization/sanitizeContent'
 import { checkRateLimit } from '@/lib/rateLimit'
 import { saveDocumentArgsSchema, createCommentArgsSchema } from '@/lib/validation'
+import { useDocumentService } from '@/lib/hooks/useDocumentService'
 import { ConvexImageExtension } from './extensions/ConvexImageExtension'
 import { ChartExtension } from './extensions/ChartExtension'
 import { CommentMark } from './extensions/CommentMark'
@@ -53,8 +52,8 @@ const HIGHLIGHT_COLORS = [
   '#ede9fe', '#fee2e2', '#ffedd5', '#cffafe',
 ]
 
-export type UserRole = 'owner' | 'editor' | 'viewer'
-export type DocumentWithRole = Doc<'documents'> & { userRole: UserRole }
+export type { UserRole, DocumentWithRole } from '@/lib/services/types'
+import type { UserRole, DocumentWithRole } from '@/lib/services/types'
 
 interface DocumentEditorProps {
   document: DocumentWithRole
@@ -93,12 +92,18 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   const dropdownPanelRef = useRef<HTMLDivElement>(null)
   const pendingCommentRef = useRef<{ from: number; to: number; quoted: string } | null>(null)
 
-  const updateDocumentMutation = useMutation(api.documents.update)
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl)
-  const createCommentMutation = useMutation(api.comments.create)
+  const { update, generateUploadUrl, createComment } = useDocumentService()
 
-  const { execute: saveDocument, validationErrors: saveErrors } = useValidatedMutation(updateDocumentMutation, saveDocumentArgsSchema)
-  const { execute: submitCommentSafe, isLoading: isSubmittingComment, validationErrors: commentErrors } = useValidatedMutation(createCommentMutation, createCommentArgsSchema)
+  const { execute: saveDocument, validationErrors: saveErrors } = useValidatedMutation(
+    ({ id, title, content }: { id: Id<'documents'>; title?: string; content?: string }) =>
+      update(id, { title, content }),
+    saveDocumentArgsSchema
+  )
+  const { execute: submitCommentSafe, isLoading: isSubmittingComment, validationErrors: commentErrors } = useValidatedMutation(
+    ({ docId, markId, text, quotedText }: { docId: Id<'documents'>; markId: string; text: string; quotedText: string }) =>
+      createComment(docId, markId, text, quotedText),
+    createCommentArgsSchema
+  )
   const { isOnline } = useConnectionStatus()
   const toast = useToast()
 

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
+import { useQuery } from 'convex/react'
 import type { Id } from '@/convex/_generated/dataModel'
+import { collaborationQueries } from '@/lib/services'
+import { useDocumentService } from '@/lib/hooks/useDocumentService'
 
 interface InviteModalProps {
   docId: Id<'documents'>
@@ -17,9 +18,8 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const data = useQuery(api.collaborators.listForDoc, { docId })
-  const invite = useMutation(api.collaborators.invite)
-  const removeCollaborator = useMutation(api.collaborators.removeCollaborator)
+  const data = useQuery(collaborationQueries.listForDoc, { docId })
+  const { invite, removeCollaborator } = useDocumentService()
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
@@ -28,7 +28,7 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
     setError(null)
     setSuccess(false)
     try {
-      await invite({ docId, email: email.trim(), role })
+      await invite(docId, email.trim(), role)
       setEmail('')
       setSuccess(true)
     } catch (err) {
@@ -39,20 +39,16 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
   }
 
   async function handleRemove(collaboratorId: Id<'collaborators'>) {
-    await removeCollaborator({ docId, collaboratorId })
+    await removeCollaborator(docId, collaboratorId)
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Share document</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -60,7 +56,6 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
         </div>
 
         <div className="px-6 py-4 space-y-5">
-          {/* Invite form */}
           <form onSubmit={handleInvite} className="space-y-3">
             <div className="flex gap-2">
               <input
@@ -81,12 +76,8 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
               </select>
             </div>
 
-            {error && (
-              <p className="text-xs text-red-500">{error}</p>
-            )}
-            {success && (
-              <p className="text-xs text-green-600">Invite sent!</p>
-            )}
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            {success && <p className="text-xs text-green-600">Invite sent!</p>}
 
             <button
               type="submit"
@@ -97,7 +88,6 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
             </button>
           </form>
 
-          {/* Current collaborators */}
           {data && (data.collaborators.length > 0 || data.pendingInvites.length > 0) && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">People with access</p>
@@ -105,9 +95,7 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
               {data.collaborators.map((collab) => (
                 <div key={collab._id} className="flex items-center justify-between py-1.5">
                   <div className="min-w-0">
-                    {collab.name && (
-                      <p className="text-sm font-medium text-gray-900 truncate">{collab.name}</p>
-                    )}
+                    {collab.name && <p className="text-sm font-medium text-gray-900 truncate">{collab.name}</p>}
                     <p className="text-xs text-gray-500 truncate">{collab.email ?? 'Unknown'}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">

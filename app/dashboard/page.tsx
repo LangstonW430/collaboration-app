@@ -3,7 +3,7 @@
 import { useQuery, useConvexAuth } from 'convex/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { api } from '@/convex/_generated/api'
+import { documentQueries } from '@/lib/services'
 import DocumentCard from '@/components/dashboard/DocumentCard'
 import NewDocumentButton from '@/components/dashboard/NewDocumentButton'
 import InvitesBanner from '@/components/dashboard/InvitesBanner'
@@ -17,7 +17,7 @@ export default function DashboardPage() {
     if (!isLoading && !isAuthenticated) router.replace('/auth/login')
   }, [isAuthenticated, isLoading, router])
 
-  const documents = useQuery(api.documents.list)
+  const documents = useQuery(documentQueries.list)
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -39,7 +39,6 @@ export default function DashboardPage() {
           <NewDocumentButton />
         </div>
 
-        {/* Loading skeleton */}
         {documents === undefined && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -52,7 +51,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Empty state */}
         {documents !== undefined && documents.length === 0 && (
           <div className="text-center py-24">
             <div className="w-16 h-16 bg-white border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -65,7 +63,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Document grid */}
         {documents !== undefined && documents.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {documents.map((doc) => (
