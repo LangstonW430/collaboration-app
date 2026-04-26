@@ -6,6 +6,8 @@ import type { ReactNode } from "react"
 import { ConnectionProvider } from "@/lib/context/ConnectionContext"
 import { ToastProvider } from "@/components/Toast"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { DocumentServiceProvider } from "@/lib/hooks/useDocumentService"
+import { AuthServiceProvider } from "@/lib/hooks/useAuthService"
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
 if (!convexUrl) throw new Error('NEXT_PUBLIC_CONVEX_URL is not set — add it to .env.local or GitHub Secrets')
@@ -14,13 +16,17 @@ const convex = new ConvexReactClient(convexUrl)
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ConvexAuthProvider client={convex}>
-      <ConnectionProvider>
-        <ToastProvider>
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
-        </ToastProvider>
-      </ConnectionProvider>
+      <AuthServiceProvider>
+        <DocumentServiceProvider>
+          <ConnectionProvider>
+            <ToastProvider>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </ToastProvider>
+          </ConnectionProvider>
+        </DocumentServiceProvider>
+      </AuthServiceProvider>
     </ConvexAuthProvider>
   )
 }

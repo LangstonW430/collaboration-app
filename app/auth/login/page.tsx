@@ -3,15 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuthActions } from '@convex-dev/auth/react'
 import { useConvexAuth } from 'convex/react'
+import { useAuthService } from '@/lib/hooks/useAuthService'
+import { formatAuthError } from '@/lib/services'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { signIn } = useAuthActions()
+  const { signIn } = useAuthService()
   const { isAuthenticated, isLoading } = useConvexAuth()
   const router = useRouter()
 
@@ -24,12 +25,11 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-
     try {
-      await signIn('password', { email, password, flow: 'signIn' })
+      await signIn(email, password)
       // useEffect handles redirect once isAuthenticated becomes true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed')
+      setError(formatAuthError(err))
     } finally {
       setLoading(false)
     }
@@ -59,47 +59,25 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="you@example.com"
-              />
+                placeholder="you@example.com" />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+              <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
+                placeholder="••••••••" />
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
-                {error}
-              </div>
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">{error}</div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2"
-            >
+            <button type="submit" disabled={loading}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2">
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
@@ -107,9 +85,7 @@ export default function LoginPage() {
 
         <p className="mt-5 text-center text-sm text-gray-500">
           Don&apos;t have an account?{' '}
-          <Link href="/auth/signup" className="text-blue-600 hover:underline font-medium">
-            Sign up
-          </Link>
+          <Link href="/auth/signup" className="text-blue-600 hover:underline font-medium">Sign up</Link>
         </p>
       </div>
     </div>

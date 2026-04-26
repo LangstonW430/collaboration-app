@@ -4,9 +4,9 @@ import { useQuery, useConvexAuth } from 'convex/react'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
-import type { DocumentWithRole } from '@/components/editor/DocumentEditor'
+import type { DocumentWithRole } from '@/lib/services/types'
+import { documentQueries } from '@/lib/services'
 
 const DocumentEditor = dynamic(
   () => import('@/components/editor/DocumentEditor'),
@@ -24,7 +24,7 @@ export default function DocPage() {
   }, [isAuthenticated, isLoading, router])
 
   const document = useQuery(
-    api.documents.get,
+    documentQueries.get,
     isAuthenticated ? { id } : 'skip'
   ) as DocumentWithRole | null | undefined
 

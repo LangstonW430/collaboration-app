@@ -1,9 +1,10 @@
 'use client'
 
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
+import { useQuery } from 'convex/react'
 import type { Id } from '@/convex/_generated/dataModel'
 import type { Editor } from '@tiptap/react'
+import { commentQueries } from '@/lib/services'
+import { useDocumentService } from '@/lib/hooks/useDocumentService'
 
 interface Props {
   editor: Editor | null
@@ -13,9 +14,8 @@ interface Props {
 }
 
 export default function CommentsSidebar({ editor, docId, canEdit, onClose }: Props) {
-  const comments = useQuery(api.comments.list, { docId }) ?? []
-  const resolveComment = useMutation(api.comments.resolve)
-  const deleteComment = useMutation(api.comments.deleteComment)
+  const comments = useQuery(commentQueries.list, { docId }) ?? []
+  const { resolveComment, deleteComment } = useDocumentService()
 
   function removeMarkFromEditor(markId: string) {
     if (!editor) return
@@ -42,10 +42,7 @@ export default function CommentsSidebar({ editor, docId, canEdit, onClose }: Pro
     let targetPos: number | null = null
     doc.descendants((node, pos) => {
       if (targetPos !== null) return false
-      if (
-        node.isText &&
-        node.marks.some((m) => m.type === commentMarkType && m.attrs.commentId === markId)
-      ) {
+      if (node.isText && node.marks.some((m) => m.type === commentMarkType && m.attrs.commentId === markId)) {
         targetPos = pos
       }
     })
@@ -55,12 +52,12 @@ export default function CommentsSidebar({ editor, docId, canEdit, onClose }: Pro
   }
 
   async function handleResolve(commentId: Id<'comments'>, markId: string) {
-    await resolveComment({ commentId })
+    await resolveComment(commentId)
     removeMarkFromEditor(markId)
   }
 
   async function handleDelete(commentId: Id<'comments'>, markId: string) {
-    await deleteComment({ commentId })
+    await deleteComment(commentId)
     removeMarkFromEditor(markId)
   }
 
@@ -70,11 +67,7 @@ export default function CommentsSidebar({ editor, docId, canEdit, onClose }: Pro
         <h3 className="text-sm font-semibold text-gray-800">
           Comments {comments.length > 0 && <span className="text-gray-400 font-normal">({comments.length})</span>}
         </h3>
-        <button
-          onClick={onClose}
-          className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
-          title="Close"
-        >
+        <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors" title="Close">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
