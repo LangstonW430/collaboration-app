@@ -1,14 +1,15 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { withRequestLogging } from "@/lib/logging/requestLogger";
 
-// Auth is handled client-side via useConvexAuth() in each page.
-// This middleware only exists to satisfy Next.js static/image exclusions.
-export function middleware(_request: NextRequest) {
-  return NextResponse.next()
+function handler(_request: NextRequest): NextResponse {
+  return NextResponse.next();
 }
+
+export const middleware = withRequestLogging(handler);
 
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
-}
+};

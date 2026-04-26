@@ -47,4 +47,16 @@ export default defineSchema({
   })
     .index("by_doc", ["docId"])
     .index("by_doc_and_resolved", ["docId", "resolved"]),
+
+  auditLogs: defineTable({
+    action: v.string(),
+    userId: v.optional(v.string()),
+    docId: v.optional(v.id("documents")),
+    metadata: v.optional(v.string()),
+    requestId: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_user_and_timestamp", ["userId", "timestamp"])
+    .index("by_doc_and_timestamp", ["docId", "timestamp"]),
 });
