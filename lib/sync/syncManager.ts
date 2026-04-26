@@ -89,9 +89,10 @@ export class SyncManager {
     if (this._retryCount < MAX_RETRIES) {
       this._retryCount++
       const delay = Math.min(BASE_BACKOFF_MS * Math.pow(2, this._retryCount - 1), MAX_BACKOFF_MS)
+      // Transition to error so subscribers see the failure, then back to pending when backoff expires
+      this._setState('error')
       this._retryTimer = setTimeout(() => {
         this._retryTimer = null
-        // Re-signal pending so the editor's debounce picks it back up
         this._setState('pending')
       }, delay)
     } else {
