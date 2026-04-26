@@ -25,8 +25,9 @@ import { common, createLowlight } from 'lowlight'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import type { Id } from '@/convex/_generated/dataModel'
-import type { SaveStatus } from '@/types'
 import { useValidatedMutation } from '@/lib/hooks/useValidatedMutation'
+import { useSyncManager } from '@/lib/sync/syncManager'
+import type { SyncState } from '@/lib/types/sync'
 import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus'
 import { useToast } from '@/components/Toast'
 import { sanitizeHtml } from '@/lib/sanitization/sanitizeContent'
@@ -71,14 +72,21 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   const canEdit = userRole === 'owner' || userRole === 'editor'
 
   const [title, setTitle] = useState(doc.title)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
+
+  const { syncState, manager } = useSyncManager(doc._id, doc.updatedAt)
+  const syncStateRef = useRef<SyncState>('synced')
+  syncStateRef.current = syncState
+
+  // Track the latest unsaved content/title so retries can re-attempt the same data
+  const latestSaveRef = useRef<{ title?: string; content?: string } | null>(null)
+
+  // Always-fresh save callback stored in a ref to avoid stale closure in subscriptions
+  const performSaveRef = useRef<() => Promise<void>>(async () => {})
 
   // Keep the title input in sync with remote changes (e.g. another user renaming the doc).
   // Only skips the sync while a local save is in flight to avoid overwriting typed text.
-  const saveStatusRef = useRef<SaveStatus>('saved')
-  saveStatusRef.current = saveStatus
   useEffect(() => {
-    if (saveStatusRef.current !== 'saving') {
+    if (syncStateRef.current !== 'pending') {
       setTitle(doc.title)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,29 +151,45 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     setDropdown(null)
   }
 
+  // Always-fresh perform-save implementation kept in a ref to avoid stale closures
+  performSaveRef.current = async function performSave() {
+    if (!latestSaveRef.current || !canEdit) return
+    const rl = checkRateLimit(doc._id)
+    if (!rl.allowed) {
+      toast.warning(`Too many requests — please wait ${Math.ceil(rl.retryAfterMs / 1000)}s before saving again.`)
+      return
+    }
+    const updates = latestSaveRef.current
+    const sanitized = updates.content != null
+      ? { ...updates, content: sanitizeHtml(updates.content) }
+      : updates
+    manager.onSaveAttempt()
+    const success = await saveDocument({ id: doc._id, ...sanitized })
+    if (success) {
+      manager.onSaveSuccess(Date.now())
+      latestSaveRef.current = null
+    } else {
+      const msg = saveErrors?._root ?? saveErrors?.title ?? saveErrors?.content
+      manager.onSaveFailure(new Error(msg ?? 'Save failed'))
+      toast.error(msg ?? 'Failed to save changes. Please check your connection.')
+    }
+  }
+
   function scheduleSave(updates: { title?: string; content?: string }) {
     if (!canEdit) return
-    setSaveStatus('saving')
+    latestSaveRef.current = { ...latestSaveRef.current, ...updates }
+    manager.onLocalChange()
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
-      const rl = checkRateLimit(doc._id)
-      if (!rl.allowed) {
-        setSaveStatus('error')
-        toast.warning(`Too many requests — please wait ${Math.ceil(rl.retryAfterMs / 1000)}s before saving again.`)
-        return
-      }
-
-      const sanitized = updates.content != null
-        ? { ...updates, content: sanitizeHtml(updates.content) }
-        : updates
-
-      const success = await saveDocument({ id: doc._id, ...sanitized })
-      setSaveStatus(success ? 'saved' : 'error')
-      if (!success) {
-        const msg = saveErrors?._root ?? saveErrors?.title ?? saveErrors?.content
-        toast.error(msg ?? 'Failed to save changes. Please check your connection.')
-      }
+      saveTimerRef.current = null
+      await performSaveRef.current()
     }, AUTOSAVE_DELAY_MS)
+  }
+
+  function handleAcknowledgeConflict() {
+    manager.acknowledgeConflict()
+    latestSaveRef.current = null
+    if (editor) editor.commands.setContent(doc.content ?? '', { emitUpdate: false })
   }
 
   const uploadImage = useCallback(async (file: File) => {
@@ -245,6 +269,15 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     if (editor) editor.setEditable(editorEditable)
   }, [editor, editorEditable])
 
+  // When the sync manager signals pending after a backoff retry, re-attempt the save
+  useEffect(() => {
+    return manager.subscribe((state) => {
+      if (state === 'pending' && saveTimerRef.current === null && latestSaveRef.current) {
+        void performSaveRef.current()
+      }
+    })
+  }, [manager])
+
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!canEdit) return
     setTitle(e.target.value)
@@ -313,12 +346,12 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     closeDropdown()
   }
 
-  const statusConfig = {
-    saved:  { label: 'Saved',       cls: 'text-green-500' },
-    saving: { label: 'Saving…',     cls: 'text-gray-400'  },
-    error:  { label: 'Save failed', cls: 'text-red-500'   },
-    idle:   { label: '',            cls: ''                },
-  }[saveStatus]
+  const statusConfig: Record<SyncState, { label: string; cls: string }> = {
+    synced:   { label: 'Saved',       cls: 'text-green-500'  },
+    pending:  { label: 'Saving…',     cls: 'text-gray-400'   },
+    conflict: { label: 'Conflict',    cls: 'text-orange-500' },
+    error:    { label: 'Save failed', cls: 'text-red-500'    },
+  }
 
   const charCount = editor?.storage.characterCount?.characters?.() ?? 0
   const wordCount = editor?.storage.characterCount?.words?.() ?? 0
@@ -477,14 +510,14 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
               </span>
             )}
             {canEdit && isOnline && (
-              <span className={`flex items-center gap-1.5 text-xs transition-colors ${statusConfig.cls}`}>
-                {saveStatus === 'saving' && (
+              <span className={`flex items-center gap-1.5 text-xs transition-colors ${statusConfig[syncState].cls}`}>
+                {syncState === 'pending' && (
                   <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 )}
-                {statusConfig.label}
+                {statusConfig[syncState].label}
               </span>
             )}
             {!canEdit && (
@@ -632,6 +665,24 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
               <p className="text-xs text-gray-400 mt-1.5 text-center">⌘+Enter to submit</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Conflict banner */}
+      {syncState === 'conflict' && (
+        <div className="bg-orange-50 border-b border-orange-200 px-4 py-2.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm text-orange-800">
+            <svg className="w-4 h-4 shrink-0 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            Someone else made changes while you were editing.
+          </div>
+          <button
+            onClick={handleAcknowledgeConflict}
+            className="shrink-0 text-xs font-medium px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+          >
+            Reload changes
+          </button>
         </div>
       )}
 
