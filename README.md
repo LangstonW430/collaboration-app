@@ -68,4 +68,11 @@ Then open [http://localhost:3000](http://localhost:3000).
 convex/          Convex backend — schema, auth, document functions
 app/             Next.js App Router pages
 components/      React components (editor, dashboard, ui)
+lib/             Service layer, hooks, sync infrastructure, logging
+docs/            Architecture and collaboration guides
 ```
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — real-time sync data flow, conflict resolution, state machine, latency expectations
+- [Collaboration](docs/COLLABORATION.md) — how sync works, what causes conflicts, how to resolve them, how to test real-time features
