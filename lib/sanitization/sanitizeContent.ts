@@ -48,6 +48,9 @@ const ALLOWED_ATTR = [
   'data-storage-id', 'data-align',
   // CommentMark — anchors a comment thread to a text range
   'data-comment-id',
+  // ChartExtension — chart type, title, and its series data
+  'data-chart-type', 'data-chart-title', 'data-chart-labels',
+  'data-chart-values', 'data-chart-colors',
   // YouTube iframe attributes
   'frameborder', 'allowfullscreen', 'allow', 'width', 'height',
   'autoplay', 'disablekbcontrols', 'enableiframeapi', 'endtime',

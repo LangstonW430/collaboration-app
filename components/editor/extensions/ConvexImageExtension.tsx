@@ -90,6 +90,13 @@ function ConvexImageView({ node, selected, editor }: NodeViewProps) {
 export const ConvexImageExtension = Image.extend({
   name: 'convexImage',
 
+  // The base Image extension only matches img[src]. Uploaded images carry a
+  // storageId and no src (the signed URL is resolved at render time), so
+  // without this rule they are dropped when the document is re-parsed.
+  parseHTML() {
+    return [{ tag: 'img[data-storage-id]' }, { tag: 'img[src]' }]
+  },
+
   addAttributes() {
     return {
       ...this.parent?.(),

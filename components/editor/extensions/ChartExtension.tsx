@@ -224,6 +224,28 @@ function ChartView({ node, updateAttributes, selected, editor }: NodeViewProps) 
   )
 }
 
+/**
+ * Serializes one chart attribute to a `data-chart-*` attribute.
+ *
+ * Without an explicit renderHTML, TipTap emits each attribute under its own
+ * key (`labels`, `data`, `colors`) as a bare HTML attribute. Those cannot be
+ * allowlisted in the sanitizer without opening it far too wide, so they were
+ * stripped on every save. `attrKey` is the node attribute's name, which is
+ * also the attribute name the previous format wrote — reading it back as a
+ * fallback keeps charts in older documents intact.
+ */
+function chartAttribute(htmlName: string, attrKey: string, defaultValue: string) {
+  return {
+    default: defaultValue,
+    parseHTML: (el: HTMLElement) =>
+      el.getAttribute(htmlName) ?? el.getAttribute(attrKey) ?? defaultValue,
+    renderHTML: (attrs: Record<string, unknown>) => {
+      const value = attrs[attrKey]
+      return value == null ? {} : { [htmlName]: String(value) }
+    },
+  }
+}
+
 export const ChartExtension = TiptapNode.create({
   name: 'chart',
   group: 'block',
@@ -232,20 +254,22 @@ export const ChartExtension = TiptapNode.create({
 
   addAttributes() {
     return {
-      chartType: { default: 'bar' },
-      chartTitle: { default: '' },
-      labels: { default: 'Jan, Feb, Mar, Apr, May' },
-      data: { default: '10, 25, 15, 30, 20' },
-      colors: { default: CHART_COLORS.slice(0, 5).join(', ') },
+      chartType: chartAttribute('data-chart-type', 'chartType', 'bar'),
+      chartTitle: chartAttribute('data-chart-title', 'chartTitle', ''),
+      labels: chartAttribute('data-chart-labels', 'labels', 'Jan, Feb, Mar, Apr, May'),
+      data: chartAttribute('data-chart-values', 'data', '10, 25, 15, 30, 20'),
+      colors: chartAttribute('data-chart-colors', 'colors', CHART_COLORS.slice(0, 5).join(', ')),
     }
   },
 
   parseHTML() {
-    return [{ tag: 'div[data-chart-type]' }]
+    // div[charttype] matches charts written in the previous bare-attribute
+    // format, which would otherwise not be recognised as chart nodes at all.
+    return [{ tag: 'div[data-chart-type]' }, { tag: 'div[charttype]' }]
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-chart-type': HTMLAttributes.chartType })]
+    return ['div', mergeAttributes(HTMLAttributes)]
   },
 
   addNodeView() {
