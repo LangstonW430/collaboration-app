@@ -1,11 +1,13 @@
 import type { NextConfig } from "next";
-import { readdirSync } from "fs";
-import { join } from "path";
 import { withSentryConfig } from "@sentry/nextjs";
+import { dependencies } from "./package.json";
 
-const tiptapPackages = readdirSync(
-  join(process.cwd(), "node_modules/@tiptap")
-).map((pkg) => `@tiptap/${pkg}`);
+// Taken from the declared dependencies rather than by reading node_modules,
+// which assumes a flat npm layout and picks up transitive packages the app
+// does not use.
+const tiptapPackages = Object.keys(dependencies).filter((name) =>
+  name.startsWith("@tiptap/")
+);
 
 const nextConfig: NextConfig = {
   // Linting runs as its own step (`npm run lint`) against the flat config in

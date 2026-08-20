@@ -32,3 +32,6 @@ blob-report/
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript incremental build cache
+*.tsbuildinfo

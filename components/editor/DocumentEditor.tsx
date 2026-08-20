@@ -4,7 +4,6 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import { Color } from '@tiptap/extension-color'
@@ -223,9 +222,10 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
+      // StarterKit registers Underline; adding it again logs a duplicate
+      // extension warning and can produce two sets of keyboard shortcuts.
       StarterKit.configure({ codeBlock: false }),
       Placeholder.configure({ placeholder: editorEditable ? 'Start writing… (type / for commands)' : '' }),
-      Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Highlight.configure({ multicolor: true }),
       Color,
