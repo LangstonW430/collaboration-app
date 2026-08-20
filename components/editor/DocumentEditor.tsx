@@ -84,6 +84,11 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   // Always-fresh save callback stored in a ref to avoid stale closure in subscriptions
   const performSaveRef = useRef<() => Promise<void>>(async () => {})
 
+  // Same for image uploads, which need the editor instance. useEditor returns
+  // null on the first render, so a callback memoised before it exists would
+  // hold that null forever and silently drop every uploaded image.
+  const uploadImageRef = useRef<(file: File) => Promise<void>>(async () => {})
+
   // Keep the title input in sync with remote changes (e.g. another user
   // renaming the doc), without overwriting a rename the user has not saved.
   useEffect(() => {
@@ -199,25 +204,9 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     if (editor) editor.commands.setContent(doc.content ?? '', { emitUpdate: false })
   }
 
-  const uploadImage = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) return
-    try {
-      const uploadUrl = await generateUploadUrl(doc._id)
-      const res = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      })
-      const { storageId } = await res.json()
-      editor?.chain().focus().insertContent({
-        type: 'convexImage',
-        attrs: { storageId, src: null, alt: file.name },
-      }).run()
-    } catch (err) {
-      console.error('Image upload failed', err)
-      toast.error('Failed to upload image. Please try again.')
-    }
-  }, [generateUploadUrl, doc._id, toast])
+  // Stable identity for the editor's paste/drop handlers, which capture their
+  // callbacks once when the editor is created.
+  const uploadImage = useCallback((file: File) => uploadImageRef.current(file), [])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -271,6 +260,29 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       },
     },
   })
+
+  uploadImageRef.current = async function uploadImage(file: File) {
+    if (!file.type.startsWith('image/')) return
+    if (!editor) return
+    try {
+      const uploadUrl = await generateUploadUrl(doc._id)
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      })
+      if (!res.ok) throw new Error(`Upload failed with status ${res.status}`)
+      const { storageId } = await res.json()
+      if (!storageId) throw new Error('Upload response did not include a storage ID')
+      editor.chain().focus().insertContent({
+        type: 'convexImage',
+        attrs: { storageId, src: null, alt: file.name },
+      }).run()
+    } catch (err) {
+      console.error('Image upload failed', err)
+      toast.error('Failed to upload image. Please try again.')
+    }
+  }
 
   useEffect(() => {
     if (editor) editor.setEditable(editorEditable)
