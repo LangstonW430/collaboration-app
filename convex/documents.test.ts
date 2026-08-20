@@ -1,6 +1,6 @@
 // @vitest-environment edge-runtime
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -10,6 +10,10 @@ import {
   createUser,
   setupTest,
 } from "./test.helpers";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 async function scenario() {
   const t = setupTest();
@@ -91,10 +95,15 @@ describe("documents.list", () => {
   });
 
   it("orders by most recently updated", async () => {
+    // Time is controlled because these run inside the same millisecond
+    // otherwise, leaving the documents tied on updatedAt.
+    vi.useFakeTimers();
     const { t, owner } = await scenario();
     const older = await createDocument(t, owner, { title: "Older" });
+    vi.advanceTimersByTime(1000);
     const newer = await createDocument(t, owner, { title: "Newer" });
 
+    vi.advanceTimersByTime(1000);
     await asUser(t, owner).mutation(api.documents.update, { id: older, title: "Older, edited" });
 
     const { documents } = await asUser(t, owner).query(api.documents.list, {});
@@ -109,6 +118,7 @@ describe("documents.list", () => {
   });
 
   it("keeps the most recently updated documents when there are too many", async () => {
+    vi.useFakeTimers();
     const t = setupTest();
     const owner = await createUser(t, "prolific@example.com");
 
@@ -118,7 +128,9 @@ describe("documents.list", () => {
       created.push(await createDocument(t, owner, { title: `Doc ${i}` }));
     }
 
-    // The oldest document becomes the most recently updated one.
+    // The oldest document becomes the most recently updated one. Time is
+    // advanced so this is genuinely later rather than tied with the rest.
+    vi.advanceTimersByTime(1000);
     await asUser(t, owner).mutation(api.documents.update, {
       id: created[0],
       title: "Oldest, just edited",
