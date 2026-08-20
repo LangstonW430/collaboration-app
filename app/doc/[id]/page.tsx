@@ -28,14 +28,18 @@ export default function DocPage() {
     isAuthenticated ? { id } : 'skip'
   ) as DocumentWithRole | null | undefined
 
+  // null means the document is gone or not ours to read. Navigating is a side
+  // effect, so it belongs here rather than in the render body, where React
+  // warns about updating another component mid-render and the call can repeat
+  // on every render until the route changes.
+  useEffect(() => {
+    if (document === null) router.replace('/dashboard')
+  }, [document, router])
+
   if (isLoading || !isAuthenticated) return <EditorSkeleton />
 
-  if (document === null) {
-    router.replace('/dashboard')
-    return null
-  }
-
-  if (document === undefined) return <EditorSkeleton />
+  // Undefined while loading, null while the redirect above is in flight.
+  if (!document) return <EditorSkeleton />
 
   return <DocumentEditor document={document} />
 }
