@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { type ZodSchema, type ZodError } from 'zod'
 import { useConvexError } from './useConvexError'
 
@@ -21,6 +21,8 @@ function parseZodError(error: ZodError): ValidationErrors {
  * Returns:
  *   execute(args)        — validates then calls the mutation; returns false on any failure
  *   validationErrors     — field-keyed validation messages (null when clean)
+ *   readValidationErrors — the same messages, readable as soon as execute()
+ *                          resolves, before React has re-rendered with them
  *   isLoading            — true while a mutation attempt is in flight
  *   error                — network/auth/unknown error from useConvexError
  *   retry                — re-attempt the last call
@@ -35,32 +37,42 @@ export function useValidatedMutation<TArgs, TReturn>(
   schema: ZodSchema<any>
 ) {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors | null>(null)
+  // Mirrors the state so a caller awaiting execute() can read why it failed in
+  // the same tick. Reading the state variable there yields the value from the
+  // render that created the closure — the previous failure's message, or null.
+  const errorsRef = useRef<ValidationErrors | null>(null)
   const { execute: executeRaw, isLoading, error, retry, clearError } = useConvexError(mutationFn)
+
+  const record = useCallback((errors: ValidationErrors | null) => {
+    errorsRef.current = errors
+    setValidationErrors(errors)
+  }, [])
 
   const execute = useCallback(
     async (args: TArgs): Promise<boolean> => {
-      setValidationErrors(null)
+      record(null)
 
       const result = schema.safeParse(args)
       if (!result.success) {
-        setValidationErrors(parseZodError(result.error))
+        record(parseZodError(result.error))
         return false
       }
 
       return executeRaw(result.data as TArgs)
     },
-    [schema, executeRaw]
+    [schema, executeRaw, record]
   )
 
   const clearErrors = useCallback(() => {
-    setValidationErrors(null)
+    record(null)
     clearError()
-  }, [clearError])
+  }, [clearError, record])
 
   return {
     execute,
     validationErrors,
-    clearValidationErrors: useCallback(() => setValidationErrors(null), []),
+    readValidationErrors: useCallback(() => errorsRef.current, []),
+    clearValidationErrors: useCallback(() => record(null), [record]),
     isLoading,
     error,
     retry,

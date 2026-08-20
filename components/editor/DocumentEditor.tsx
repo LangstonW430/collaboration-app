@@ -117,7 +117,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   // useValidatedMutation reports success as a boolean, so the server's
   // updatedAt is captured here on the way past.
   const savedAtRef = useRef<number | null>(null)
-  const { execute: saveDocument, validationErrors: saveErrors } = useValidatedMutation(
+  const { execute: saveDocument, readValidationErrors: readSaveErrors } = useValidatedMutation(
     async ({ id, title, content }: { id: Id<'documents'>; title?: string; content?: string }) => {
       const result = await update(id, { title, content })
       savedAtRef.current = result.updatedAt
@@ -125,7 +125,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     },
     saveDocumentArgsSchema
   )
-  const { execute: submitCommentSafe, isLoading: isSubmittingComment, validationErrors: commentErrors } = useValidatedMutation(
+  const { execute: submitCommentSafe, isLoading: isSubmittingComment, readValidationErrors: readCommentErrors } = useValidatedMutation(
     ({ docId, markId, text, quotedText }: { docId: Id<'documents'>; markId: string; text: string; quotedText: string }) =>
       createComment(docId, markId, text, quotedText),
     createCommentArgsSchema
@@ -192,6 +192,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       manager.onSaveSuccess(savedAtRef.current ?? Date.now())
       latestSaveRef.current = null
     } else {
+      const saveErrors = readSaveErrors()
       const msg = saveErrors?._root ?? saveErrors?.title ?? saveErrors?.content
       manager.onSaveFailure(new Error(msg ?? 'Save failed'))
       toast.error(msg ?? 'Failed to save changes. Please check your connection.')
@@ -393,6 +394,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       setShowSidebar(true)
       toast.success('Comment added.')
     } else {
+      const commentErrors = readCommentErrors()
       const msg = commentErrors?.text ?? commentErrors?._root
       toast.error(msg ?? 'Failed to save comment. Please try again.')
     }

@@ -280,3 +280,55 @@ describe('useValidatedMutation', () => {
     })
   })
 })
+
+describe('readValidationErrors', () => {
+  const schema = z.object({ title: z.string().min(1, 'Title cannot be empty') })
+
+  it('is readable in the same tick execute() resolves', async () => {
+    const mutationFn = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() => useValidatedMutation(mutationFn, schema))
+
+    // Deliberately not wrapped in a re-render: this is what a caller awaiting
+    // execute() sees, before React has processed the state update.
+    let errorsAtReturn: Record<string, string> | null = null
+    await act(async () => {
+      await result.current.execute({ title: '' })
+      errorsAtReturn = result.current.readValidationErrors()
+    })
+
+    expect(errorsAtReturn).toEqual({ title: 'Title cannot be empty' })
+  })
+
+  it('reports the current failure rather than the previous one', async () => {
+    const mutationFn = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() =>
+      useValidatedMutation(
+        mutationFn,
+        z.object({ title: z.string().max(5, 'Title is too long').min(1, 'Title cannot be empty') })
+      )
+    )
+
+    const seen: Array<Record<string, string> | null> = []
+    await act(async () => {
+      await result.current.execute({ title: '' })
+      seen.push(result.current.readValidationErrors())
+      await result.current.execute({ title: 'far too long' })
+      seen.push(result.current.readValidationErrors())
+    })
+
+    expect(seen[0]).toEqual({ title: 'Title cannot be empty' })
+    expect(seen[1]).toEqual({ title: 'Title is too long' })
+  })
+
+  it('clears once a call passes validation', async () => {
+    const mutationFn = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() => useValidatedMutation(mutationFn, schema))
+
+    await act(async () => {
+      await result.current.execute({ title: '' })
+      await result.current.execute({ title: 'fine' })
+    })
+
+    expect(result.current.readValidationErrors()).toBeNull()
+  })
+})
