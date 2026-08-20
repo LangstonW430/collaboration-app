@@ -51,7 +51,7 @@ A conflict is detected when:
 
 1. User A has unsaved local changes (state = "pending"), AND
 2. A server update arrives with a timestamp newer than the last known server timestamp, AND
-3. That update was **not** caused by User A's own save (the `_savedJustNow` flag suppresses own-echo updates)
+3. That update was **not** User A's own save coming back (see below)
 
 ```
 User A (pending)          Server              User B
@@ -62,7 +62,6 @@ User A (pending)          Server              User B
 onServerUpdate(T2)
 hasPendingChanges=true
 T2 > lastKnownT1
-_savedJustNow=false
     ↓
 state → "conflict"
 Conflict banner shown
@@ -70,20 +69,37 @@ Conflict banner shown
 
 ### Own-Save Echo Suppression
 
+`documents.update` returns the `updatedAt` it wrote, and `onSaveSuccess`
+records that value. The subscription then delivers the document carrying the
+same timestamp, and `onServerUpdate` ignores anything at or behind what it
+already knows — so a save's own echo is recognised by being the same write.
+
 ```
 User A
 ──────────────────────────────────────────────────────────
 mutation sent →
 onSaveAttempt()
-                  ← mutation ack + new updatedAt=T3
+                  ← mutation ack, returns updatedAt=T3
 onSaveSuccess(T3)
-  _savedJustNow = true
+  serverTimestamp = T3   (the server's value, not Date.now())
   state → "synced"
                   ← reactive query fires with T3
 onServerUpdate(T3)
-  _savedJustNow=true → ignored (not a conflict)
-  setTimeout → _savedJustNow = false
+  T3 is not > T3 → ignored (not a conflict)
 ```
+
+Two earlier approaches were wrong here, and the reasons are worth keeping:
+
+- A `_savedJustNow` flag cleared on a `setTimeout(…, 0)` guarded a network
+  round trip with a single tick, so it had always expired by the time the echo
+  arrived. It appeared to work only because a completed save leaves no pending
+  changes; anyone still typing during the round trip saw their own edit
+  reported as a conflict.
+- Recording `Date.now()` at save time compared a browser clock against a server
+  clock, so which write looked newer depended on the skew between the two.
+
+The same comparison also discards out-of-order deliveries, which arrive
+carrying a timestamp behind one already seen.
 
 ---
 

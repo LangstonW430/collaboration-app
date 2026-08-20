@@ -62,13 +62,45 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000).
 
+## Checks
+
+```bash
+npm test          # unit and Convex function tests (vitest)
+npm run typecheck # tsc over the app and the convex/ project
+npm run lint      # eslint
+npm run build     # production build
+```
+
+CI runs all four on every push and pull request.
+
+Convex backend functions are tested with
+[convex-test](https://docs.convex.dev/testing/convex-test), which runs the real
+function bodies against an in-memory database — no deployment needed. Those
+tests live beside the code in `convex/*.test.ts` and declare
+`// @vitest-environment edge-runtime`, which is what Convex functions run under.
+Files matching `*.test.ts` are not deployed.
+
+```bash
+npm run test:watch     # re-run on change
+npm run test:coverage  # coverage report
+```
+
+End-to-end tests are separate and need a running deployment, so they are not
+part of `npm test` or CI:
+
+```bash
+npm run e2e       # requires `npx convex dev` and `npm run dev` running
+```
+
 ## Project structure
 
 ```
-convex/          Convex backend — schema, auth, document functions
+convex/          Convex backend — schema, auth, document functions, their tests
+convex/model/    Shared backend logic: access checks, rate limits, audit trail
 app/             Next.js App Router pages
 components/      React components (editor, dashboard, ui)
-lib/             Service layer, hooks, sync infrastructure, logging
+lib/             Service layer, hooks, sync infrastructure, validation
+__tests__/       Frontend unit tests and Playwright end-to-end specs
 docs/            Architecture and collaboration guides
 ```
 
