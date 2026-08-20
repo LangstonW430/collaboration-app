@@ -50,7 +50,7 @@ export function DocumentServiceProvider({ children }: { children: ReactNode }) {
         _remove({ id }).then(() => undefined),
 
       // ── File ─────────────────────────────────────────────────────────────
-      generateUploadUrl: () => _generateUploadUrl(),
+      generateUploadUrl: (docId: Id<"documents">) => _generateUploadUrl({ docId }),
 
       // ── Comments ─────────────────────────────────────────────────────────
       createComment: (

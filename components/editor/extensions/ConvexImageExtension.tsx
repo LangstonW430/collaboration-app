@@ -1,6 +1,6 @@
 'use client'
 
-import Image from '@tiptap/extension-image'
+import Image, { type ImageOptions } from '@tiptap/extension-image'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import { useQuery } from 'convex/react'
@@ -8,14 +8,18 @@ import { api } from '@/convex/_generated/api'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useState } from 'react'
 
-function ConvexImageView({ node, selected, editor }: NodeViewProps) {
+function ConvexImageView({ node, selected, editor, extension }: NodeViewProps) {
   const storageId = node.attrs.storageId as string | null
   const directSrc = node.attrs.src as string | null
+  const docId = extension.options.docId as Id<'documents'> | null
   const [showControls, setShowControls] = useState(false)
 
+  // The signed URL is scoped to the document, so both IDs are required.
   const resolvedUrl = useQuery(
     api.files.getImageUrl,
-    storageId ? { storageId: storageId as Id<'_storage'> } : 'skip'
+    storageId && docId
+      ? { storageId: storageId as Id<'_storage'>, docId }
+      : 'skip'
   )
 
   const src = resolvedUrl ?? directSrc ?? ''
@@ -87,8 +91,25 @@ function ConvexImageView({ node, selected, editor }: NodeViewProps) {
   )
 }
 
-export const ConvexImageExtension = Image.extend({
+export interface ConvexImageOptions extends ImageOptions {
+  /**
+   * The document these images belong to. Set by DocumentEditor via
+   * .configure({ docId }); image URLs are authorized against it.
+   */
+  docId: Id<'documents'> | null
+}
+
+export const ConvexImageExtension = Image.extend<ConvexImageOptions>({
   name: 'convexImage',
+
+  addOptions() {
+    // The base Image extension always defines addOptions, so parent is present
+    // at runtime; the cast keeps its required fields non-optional.
+    return {
+      ...(this.parent?.() as ImageOptions),
+      docId: null,
+    }
+  },
 
   // The base Image extension only matches img[src]. Uploaded images carry a
   // storageId and no src (the signed URL is resolved at render time), so

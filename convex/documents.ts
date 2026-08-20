@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { z } from "zod";
+import { getDocumentAccess, requireDocumentAccess } from "./model/documentAccess";
 
 const TITLE_MAX = 500;
 const CONTENT_MAX = 1_000_000;
@@ -52,26 +53,10 @@ export const list = query({
 export const get = query({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
+    const access = await getDocumentAccess(ctx, args.id);
+    if (!access) return null;
 
-    const doc = await ctx.db.get(args.id);
-    if (!doc) return null;
-
-    if (doc.ownerId === userId) {
-      return { ...doc, userRole: "owner" as const };
-    }
-
-    const collab = await ctx.db
-      .query("collaborators")
-      .withIndex("by_doc_and_user", (q) =>
-        q.eq("docId", args.id).eq("userId", userId)
-      )
-      .unique();
-
-    if (!collab) return null;
-
-    return { ...doc, userRole: collab.role as "editor" | "viewer" };
+    return { ...access.doc, userRole: access.role };
   },
 });
 
@@ -101,8 +86,9 @@ export const update = mutation({
     content: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    // Authorize before validating, so validation feedback is only ever
+    // returned to someone allowed to edit the document.
+    const { userId } = await requireDocumentAccess(ctx, args.id, "write");
 
     // Backend validation — independent of any client-side checks
     const validation = updateArgsSchema.safeParse({ title: args.title, content: args.content });
@@ -110,19 +96,6 @@ export const update = mutation({
       const message = validation.error.issues[0]?.message ?? "Validation failed";
       console.error("[documents.update] Validation failure", { userId, issues: validation.error.issues });
       throw new Error(message);
-    }
-
-    const doc = await ctx.db.get(args.id);
-    if (!doc) throw new Error("Document not found");
-
-    if (doc.ownerId !== userId) {
-      const collab = await ctx.db
-        .query("collaborators")
-        .withIndex("by_doc_and_user", (q) =>
-          q.eq("docId", args.id).eq("userId", userId)
-        )
-        .unique();
-      if (!collab || collab.role !== "editor") throw new Error("Not authorized");
     }
 
     const { id, ...fields } = args;

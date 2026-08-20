@@ -81,8 +81,11 @@ export interface DocumentMutations {
   update(id: Id<"documents">, updates: DocumentUpdate): Promise<void>;
   /** Permanently delete an owned document. */
   remove(id: Id<"documents">): Promise<void>;
-  /** Return a short-lived signed URL for direct file upload to Convex storage. */
-  generateUploadUrl(): Promise<string>;
+  /**
+   * Return a short-lived signed URL for direct file upload to Convex storage.
+   * Scoped to a document the caller can edit.
+   */
+  generateUploadUrl(docId: Id<"documents">): Promise<string>;
 }
 
 export interface CommentMutations {

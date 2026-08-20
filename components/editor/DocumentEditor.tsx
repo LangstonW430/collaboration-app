@@ -195,7 +195,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   const uploadImage = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) return
     try {
-      const uploadUrl = await generateUploadUrl()
+      const uploadUrl = await generateUploadUrl(doc._id)
       const res = await fetch(uploadUrl, {
         method: 'POST',
         headers: { 'Content-Type': file.type },
@@ -210,7 +210,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       console.error('Image upload failed', err)
       toast.error('Failed to upload image. Please try again.')
     }
-  }, [generateUploadUrl, toast])
+  }, [generateUploadUrl, doc._id, toast])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -234,7 +234,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       Youtube.configure({ controls: true, nocookie: true }),
       CharacterCount,
       Typography,
-      ConvexImageExtension,
+      ConvexImageExtension.configure({ docId: doc._id }),
       ChartExtension,
       CommentMark,
     ],

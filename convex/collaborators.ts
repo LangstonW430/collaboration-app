@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { z } from "zod";
+import { getDocumentAccess, requireDocumentOwner } from "./model/documentAccess";
 
 const inviteSchema = z.object({
   email: z
@@ -40,8 +41,7 @@ export const invite = mutation({
       throw new Error(message);
     }
 
-    const doc = await ctx.db.get(args.docId);
-    if (!doc || doc.ownerId !== userId) throw new Error("Not authorized");
+    await requireDocumentOwner(ctx, args.docId);
 
     // Prevent inviting yourself
     const myEmail = await getCurrentUserEmail(ctx, userId);
@@ -76,11 +76,8 @@ export const invite = mutation({
 export const listForDoc = query({
   args: { docId: v.id("documents") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
-
-    const doc = await ctx.db.get(args.docId);
-    if (!doc || doc.ownerId !== userId) return null;
+    const access = await getDocumentAccess(ctx, args.docId);
+    if (!access || access.role !== "owner") return null;
 
     const collaborators = await ctx.db
       .query("collaborators")
@@ -208,11 +205,7 @@ export const removeCollaborator = mutation({
     collaboratorId: v.id("collaborators"),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const doc = await ctx.db.get(args.docId);
-    if (!doc || doc.ownerId !== userId) throw new Error("Not authorized");
+    await requireDocumentOwner(ctx, args.docId);
 
     const collab = await ctx.db.get(args.collaboratorId);
     if (!collab || collab.docId !== args.docId) throw new Error("Collaborator not found");
