@@ -1,50 +1,15 @@
 import { v } from "convex/values";
-import { mutation, internalMutation, internalQuery } from "./_generated/server";
+import { internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
-// Public mutation — userId derived server-side from auth, never accepted as arg.
-export const logAction = mutation({
-  args: {
-    action: v.string(),
-    docId: v.optional(v.id("documents")),
-    metadata: v.optional(v.string()),
-    requestId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    await ctx.db.insert("auditLogs", {
-      action: args.action,
-      userId: identity?.tokenIdentifier ?? "anonymous",
-      docId: args.docId,
-      metadata: args.metadata,
-      requestId: args.requestId,
-      timestamp: Date.now(),
-    });
-  },
-});
-
-// Internal mutation — called from other Convex functions that have already
-// validated the userId themselves.
-export const logInternalAction = internalMutation({
-  args: {
-    action: v.string(),
-    userId: v.optional(v.string()),
-    docId: v.optional(v.id("documents")),
-    metadata: v.optional(v.string()),
-    requestId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.insert("auditLogs", {
-      action: args.action,
-      userId: args.userId,
-      docId: args.docId,
-      metadata: args.metadata,
-      requestId: args.requestId,
-      timestamp: Date.now(),
-    });
-  },
-});
-
+/**
+ * Reads the audit trail, newest first.
+ *
+ * Internal on purpose: audit records describe who has access to what across
+ * every document, so there is no safe way to expose them to a client without
+ * an administrative identity to check first. Audit rows are written by
+ * recordAudit() in convex/model/audit.ts, inside the mutations themselves.
+ */
 export const getAuditLogs = internalQuery({
   args: {
     limit: v.number(),

@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { inviteFieldsSchema } from "../lib/validation/documentSchema";
 import { getDocumentAccess, requireDocumentOwner } from "./model/documentAccess";
+import { AUDIT_ACTIONS, recordAudit } from "./model/audit";
 
 async function getCurrentUserEmail(
   ctx: QueryCtx | MutationCtx,
@@ -62,6 +63,13 @@ export const invite = mutation({
       inviteeEmail,
       role: args.role,
       status: "pending",
+    });
+
+    await recordAudit(ctx, {
+      action: AUDIT_ACTIONS.COLLABORATOR_INVITED,
+      userId,
+      docId: args.docId,
+      metadata: { inviteeEmail, role: args.role },
     });
   },
 });
@@ -170,6 +178,13 @@ export const acceptInvite = mutation({
     }
 
     await ctx.db.patch(args.inviteId, { status: "accepted" });
+
+    await recordAudit(ctx, {
+      action: AUDIT_ACTIONS.COLLABORATOR_ADDED,
+      userId,
+      docId: invite.docId,
+      metadata: { role: invite.role, viaInvite: args.inviteId },
+    });
   },
 });
 
@@ -189,6 +204,12 @@ export const declineInvite = mutation({
     }
 
     await ctx.db.patch(args.inviteId, { status: "declined" });
+
+    await recordAudit(ctx, {
+      action: AUDIT_ACTIONS.INVITE_DECLINED,
+      userId,
+      docId: invite.docId,
+    });
   },
 });
 
@@ -199,11 +220,18 @@ export const removeCollaborator = mutation({
     collaboratorId: v.id("collaborators"),
   },
   handler: async (ctx, args) => {
-    await requireDocumentOwner(ctx, args.docId);
+    const { userId } = await requireDocumentOwner(ctx, args.docId);
 
     const collab = await ctx.db.get(args.collaboratorId);
     if (!collab || collab.docId !== args.docId) throw new Error("Collaborator not found");
 
     await ctx.db.delete(args.collaboratorId);
+
+    await recordAudit(ctx, {
+      action: AUDIT_ACTIONS.COLLABORATOR_REMOVED,
+      userId,
+      docId: args.docId,
+      metadata: { removedUserId: collab.userId, role: collab.role },
+    });
   },
 });

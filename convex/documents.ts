@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { updateDocumentFieldsSchema } from "../lib/validation/documentSchema";
+import { AUDIT_ACTIONS, recordAudit } from "./model/audit";
 import {
   getDocumentAccess,
   requireDocumentAccess,
@@ -64,13 +65,17 @@ export const create = mutation({
     if (!userId) throw new Error("Not authenticated");
 
     const now = Date.now();
-    return await ctx.db.insert("documents", {
+    const docId = await ctx.db.insert("documents", {
       title: "Untitled Document",
       content: "",
       ownerId: userId,
       createdAt: now,
       updatedAt: now,
     });
+
+    await recordAudit(ctx, { action: AUDIT_ACTIONS.DOCUMENT_CREATED, userId, docId });
+
+    return docId;
   },
 });
 
@@ -119,7 +124,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    await requireDocumentOwner(ctx, args.id);
+    const { userId, doc } = await requireDocumentOwner(ctx, args.id);
 
     const collaborators = await ctx.db
       .query("collaborators")
@@ -142,6 +147,20 @@ export const remove = mutation({
       ...invites.map((row) => ctx.db.delete(row._id)),
       ...comments.map((row) => ctx.db.delete(row._id)),
     ]);
+
+    // Recorded before the delete, while the document is still readable. The
+    // title is kept so the trail stays meaningful once the document is gone.
+    await recordAudit(ctx, {
+      action: AUDIT_ACTIONS.DOCUMENT_DELETED,
+      userId,
+      docId: args.id,
+      metadata: {
+        title: doc.title,
+        collaboratorsRemoved: collaborators.length,
+        invitesRemoved: invites.length,
+        commentsRemoved: comments.length,
+      },
+    });
 
     await ctx.db.delete(args.id);
   },

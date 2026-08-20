@@ -2,6 +2,7 @@ import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { createCommentFieldsSchema } from '../lib/validation/documentSchema'
+import { AUDIT_ACTIONS, recordAudit } from './model/audit'
 import {
   canWrite,
   getDocumentAccess,
@@ -99,5 +100,12 @@ export const deleteComment = mutation({
     }
 
     await ctx.db.delete(args.commentId)
+
+    await recordAudit(ctx, {
+      action: AUDIT_ACTIONS.COMMENT_DELETED,
+      userId,
+      docId: comment.docId,
+      metadata: { commentAuthorId: comment.authorId },
+    })
   },
 })
