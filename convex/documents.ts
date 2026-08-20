@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { updateDocumentFieldsSchema } from "../lib/validation/documentSchema";
 import { AUDIT_ACTIONS, recordAudit } from "./model/audit";
+import { enforceRateLimit } from "./model/rateLimit";
 import {
   getDocumentAccess,
   requireDocumentAccess,
@@ -63,6 +64,8 @@ export const create = mutation({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    await enforceRateLimit(ctx, userId, "documents.create");
 
     const now = Date.now();
     const docId = await ctx.db.insert("documents", {

@@ -4,6 +4,7 @@ import {
   getDocumentAccess,
   requireDocumentAccess,
 } from "./model/documentAccess";
+import { enforceRateLimit } from "./model/rateLimit";
 
 /**
  * Returns a signed URL for uploading a file directly to Convex storage.
@@ -13,7 +14,9 @@ import {
 export const generateUploadUrl = mutation({
   args: { docId: v.id("documents") },
   handler: async (ctx, args) => {
-    await requireDocumentAccess(ctx, args.docId, "write");
+    const { userId } = await requireDocumentAccess(ctx, args.docId, "write");
+    await enforceRateLimit(ctx, userId, "files.upload");
+
     return await ctx.storage.generateUploadUrl();
   },
 });

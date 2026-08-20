@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { createCommentFieldsSchema } from '../lib/validation/documentSchema'
 import { AUDIT_ACTIONS, recordAudit } from './model/audit'
+import { enforceRateLimit } from './model/rateLimit'
 import {
   canWrite,
   getDocumentAccess,
@@ -20,6 +21,7 @@ export const create = mutation({
     // Read access, not write: viewers can comment on a document they can see
     // without being able to change its contents.
     const { userId } = await requireDocumentAccess(ctx, args.docId, 'read')
+    await enforceRateLimit(ctx, userId, 'comments.create')
 
     const validation = createCommentFieldsSchema.safeParse({ text: args.text, quotedText: args.quotedText })
     if (!validation.success) {

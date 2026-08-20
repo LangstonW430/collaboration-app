@@ -48,6 +48,14 @@ export default defineSchema({
     .index("by_doc", ["docId"])
     .index("by_doc_and_resolved", ["docId", "resolved"]),
 
+  // Fixed-window counters backing convex/model/rateLimit.ts. One row per
+  // (user, action) pair, so the table stays bounded without a cleanup job.
+  rateLimits: defineTable({
+    key: v.string(),
+    windowStart: v.number(),
+    count: v.number(),
+  }).index("by_key", ["key"]),
+
   auditLogs: defineTable({
     action: v.string(),
     userId: v.optional(v.string()),

@@ -6,6 +6,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { inviteFieldsSchema } from "../lib/validation/documentSchema";
 import { getDocumentAccess, requireDocumentOwner } from "./model/documentAccess";
 import { AUDIT_ACTIONS, recordAudit } from "./model/audit";
+import { enforceRateLimit } from "./model/rateLimit";
 
 async function getCurrentUserEmail(
   ctx: QueryCtx | MutationCtx,
@@ -35,6 +36,7 @@ export const invite = mutation({
     }
 
     await requireDocumentOwner(ctx, args.docId);
+    await enforceRateLimit(ctx, userId, "collaborators.invite");
 
     const inviteeEmail = validation.data.email.toLowerCase();
 
