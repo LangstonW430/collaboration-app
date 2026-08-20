@@ -250,3 +250,100 @@ describe("collaborators.removeCollaborator", () => {
     ).rejects.toThrow(/not found/i);
   });
 });
+
+describe("changing an existing collaborator's role", () => {
+  async function reinvite(from: "viewer" | "editor", to: "viewer" | "editor") {
+    const t = setupTest();
+    const owner = await createUser(t, "owner@example.com");
+    const person = await createUser(t, "person@example.com");
+    const docId = await createDocument(t, owner);
+    await addCollaborator(t, docId, person, from);
+
+    await asUser(t, owner).mutation(api.collaborators.invite, {
+      docId,
+      email: "person@example.com",
+      role: to,
+    });
+    const [invite] = await asUser(t, person).query(api.collaborators.listMyInvites, {});
+    await asUser(t, person).mutation(api.collaborators.acceptInvite, { inviteId: invite._id });
+
+    return { t, docId, person };
+  }
+
+  it("promotes a viewer to editor when they accept", async () => {
+    const { t, docId, person } = await reinvite("viewer", "editor");
+
+    expect((await asUser(t, person).query(api.documents.get, { id: docId }))?.userRole).toBe(
+      "editor"
+    );
+    await expect(
+      asUser(t, person).mutation(api.documents.update, { id: docId, content: "<p>now I can</p>" })
+    ).resolves.toBeDefined();
+  });
+
+  it("demotes an editor to viewer when they accept", async () => {
+    const { t, docId, person } = await reinvite("editor", "viewer");
+
+    expect((await asUser(t, person).query(api.documents.get, { id: docId }))?.userRole).toBe(
+      "viewer"
+    );
+    await expect(
+      asUser(t, person).mutation(api.documents.update, { id: docId, content: "<p>nope</p>" })
+    ).rejects.toThrow(/Not authorized/);
+  });
+
+  it("leaves them with one collaborator row, not two", async () => {
+    const { t, docId } = await reinvite("viewer", "editor");
+
+    const rows = await t.run(async (ctx) =>
+      await ctx.db
+        .query("collaborators")
+        .withIndex("by_doc", (q) => q.eq("docId", docId))
+        .collect()
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  it("still refuses a second pending invite for the same document", async () => {
+    const t = setupTest();
+    const owner = await createUser(t, "owner@example.com");
+    await createUser(t, "person@example.com");
+    const docId = await createDocument(t, owner);
+
+    await asUser(t, owner).mutation(api.collaborators.invite, {
+      docId,
+      email: "person@example.com",
+      role: "viewer",
+    });
+
+    await expect(
+      asUser(t, owner).mutation(api.collaborators.invite, {
+        docId,
+        email: "person@example.com",
+        role: "editor",
+      })
+    ).rejects.toThrow(/already sent/i);
+  });
+
+  it("allows the same person to be invited to a different document", async () => {
+    const t = setupTest();
+    const owner = await createUser(t, "owner@example.com");
+    await createUser(t, "person@example.com");
+    const first = await createDocument(t, owner);
+    const second = await createDocument(t, owner);
+
+    await asUser(t, owner).mutation(api.collaborators.invite, {
+      docId: first,
+      email: "person@example.com",
+      role: "viewer",
+    });
+
+    await expect(
+      asUser(t, owner).mutation(api.collaborators.invite, {
+        docId: second,
+        email: "person@example.com",
+        role: "viewer",
+      })
+    ).resolves.not.toThrow();
+  });
+});

@@ -13,8 +13,7 @@ async function getCurrentUserEmail(
   userId: Id<"users">
 ): Promise<string | null> {
   const user = await ctx.db.get(userId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (user as any)?.email ?? null;
+  return user?.email ?? null;
 }
 
 /** Invite a user by email to collaborate on a document. Only the owner can invite. */
@@ -46,18 +45,18 @@ export const invite = mutation({
       throw new Error("Cannot invite yourself");
     }
 
-    // Check for existing pending invite
-    const existing = await ctx.db
+    // Looked up by email rather than by scanning a page of the document's
+    // invites, which would miss a duplicate on a document with many pending.
+    const pendingForEmail = await ctx.db
       .query("invites")
-      .withIndex("by_doc_and_status", (q) =>
-        q.eq("docId", args.docId).eq("status", "pending")
+      .withIndex("by_invitee_email_and_status", (q) =>
+        q.eq("inviteeEmail", inviteeEmail).eq("status", "pending")
       )
-      .take(100);
+      .collect();
 
-    const alreadyPending = existing.some(
-      (inv) => inv.inviteeEmail.toLowerCase() === inviteeEmail
-    );
-    if (alreadyPending) throw new Error("Invite already sent to this email");
+    if (pendingForEmail.some((inv) => inv.docId === args.docId)) {
+      throw new Error("Invite already sent to this email");
+    }
 
     await ctx.db.insert("invites", {
       docId: args.docId,
@@ -95,10 +94,8 @@ export const listForDoc = query({
           _id: collab._id,
           userId: collab.userId,
           role: collab.role,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          name: (user as any)?.name ?? null as string | null,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          email: (user as any)?.email ?? null as string | null,
+          name: user?.name ?? null,
+          email: user?.email ?? null,
         };
       })
     );
@@ -139,8 +136,7 @@ export const listMyInvites = query({
           _id: inv._id,
           docId: inv.docId,
           docTitle: doc?.title ?? "Untitled Document",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          inviterName: (inviter as any)?.name ?? (inviter as any)?.email ?? "Someone",
+          inviterName: inviter?.name ?? inviter?.email ?? "Someone",
           role: inv.role,
         };
       })
@@ -171,12 +167,18 @@ export const acceptInvite = mutation({
       )
       .unique();
 
-    if (!existing) {
+    if (existing === null) {
       await ctx.db.insert("collaborators", {
         docId: invite.docId,
         userId,
         role: invite.role,
       });
+    } else if (existing.role !== invite.role) {
+      // Already a collaborator in a different role. The owner sent this invite
+      // to change it, so accepting applies the new role — previously the invite
+      // was marked accepted and the old role silently kept, which is how an
+      // owner promoted a viewer to editor and nothing happened.
+      await ctx.db.patch(existing._id, { role: invite.role });
     }
 
     await ctx.db.patch(args.inviteId, { status: "accepted" });
