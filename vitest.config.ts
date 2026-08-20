@@ -13,6 +13,10 @@ export default defineConfig({
       '__tests__/unit/**/*.test.tsx',
       'lib/**/*.test.ts',
       'components/**/*.test.tsx',
+      // Convex function tests live beside the functions they cover. They run
+      // under the edge-runtime environment via a per-file @vitest-environment
+      // docblock, because convex-test emulates the Convex runtime, not a DOM.
+      'convex/**/*.test.ts',
     ],
     exclude: ['node_modules', '.next', '__tests__/e2e/**'],
     reporters: ['verbose'],
@@ -26,7 +30,7 @@ export default defineConfig({
         branches: 40,
         statements: 60,
       },
-      include: ['lib/**/*.ts', 'lib/**/*.tsx'],
+      include: ['lib/**/*.ts', 'lib/**/*.tsx', 'convex/**/*.ts'],
       exclude: [
         // Test files
         'lib/**/*.test.ts',
@@ -34,6 +38,12 @@ export default defineConfig({
         'lib/**/*.d.ts',
         // Auto-generated
         'convex/_generated/**',
+        // Convex config and test scaffolding, not application logic
+        'convex/**/*.test.ts',
+        'convex/test.helpers.ts',
+        'convex/schema.ts',
+        'convex/auth.config.ts',
+        'convex/http.ts',
         // TypeScript-only files (no runtime code)
         'lib/types/**',
         'lib/services/types.ts',
