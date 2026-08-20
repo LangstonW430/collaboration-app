@@ -10,6 +10,11 @@ export {
   documentContentSchema,
   commentTextSchema,
   inviteEmailSchema,
+  quotedTextSchema,
+  // Server-side field schemas
+  updateDocumentFieldsSchema,
+  createCommentFieldsSchema,
+  inviteFieldsSchema,
   // Mutation-args schemas
   saveDocumentArgsSchema,
   createCommentArgsSchema,

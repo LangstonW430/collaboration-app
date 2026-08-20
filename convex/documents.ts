@@ -1,20 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { z } from "zod";
+import { updateDocumentFieldsSchema } from "../lib/validation/documentSchema";
 import {
   getDocumentAccess,
   requireDocumentAccess,
   requireDocumentOwner,
 } from "./model/documentAccess";
-
-const TITLE_MAX = 500;
-const CONTENT_MAX = 1_000_000;
-
-const updateArgsSchema = z.object({
-  title: z.string().max(TITLE_MAX, `Title must be ${TITLE_MAX} characters or fewer`).optional(),
-  content: z.string().max(CONTENT_MAX, `Document exceeds the ${(CONTENT_MAX / 1000).toLocaleString()} KB size limit`).optional(),
-});
 
 /** Returns all documents the current user owns or collaborates on. */
 export const list = query({
@@ -95,15 +87,21 @@ export const update = mutation({
     const { userId } = await requireDocumentAccess(ctx, args.id, "write");
 
     // Backend validation — independent of any client-side checks
-    const validation = updateArgsSchema.safeParse({ title: args.title, content: args.content });
+    const validation = updateDocumentFieldsSchema.safeParse({ title: args.title, content: args.content });
     if (!validation.success) {
       const message = validation.error.issues[0]?.message ?? "Validation failed";
       console.error("[documents.update] Validation failure", { userId, issues: validation.error.issues });
       throw new Error(message);
     }
 
-    const { id, ...fields } = args;
-    await ctx.db.patch(id, { ...fields, updatedAt: Date.now() });
+    // Writes the validated values, so a field is stored trimmed rather than as
+    // it arrived. Only fields the caller actually sent are patched.
+    const { title, content } = validation.data;
+    await ctx.db.patch(args.id, {
+      ...(title !== undefined ? { title } : {}),
+      ...(content !== undefined ? { content } : {}),
+      updatedAt: Date.now(),
+    });
   },
 });
 

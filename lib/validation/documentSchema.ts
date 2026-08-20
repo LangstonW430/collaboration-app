@@ -28,6 +28,10 @@ export const commentTextSchema = z
   .transform((s) => s.trim())
   .pipe(z.string().min(1, 'Comment cannot be empty').max(COMMENT_TEXT_MAX, `Comment must be ${COMMENT_TEXT_MAX} characters or fewer`))
 
+export const quotedTextSchema = z
+  .string()
+  .max(COMMENT_QUOTED_MAX, `Quoted text must be ${COMMENT_QUOTED_MAX} characters or fewer`)
+
 export const inviteEmailSchema = z
   .string()
   .transform((s) => s.trim())
@@ -38,6 +42,28 @@ export const inviteEmailSchema = z
       .max(EMAIL_MAX, 'Email address is too long')
       .email('Please enter a valid email address')
   )
+
+// ── Server-side field schemas ─────────────────────────────────────────────────
+// The Convex mutations validate with these, so the backend enforces exactly the
+// rules the client enforces. Convex validates the ID arguments itself, so these
+// cover only the user-supplied fields.
+
+/** Fields accepted by api.documents.update. */
+export const updateDocumentFieldsSchema = z.object({
+  title: documentTitleSchema.optional(),
+  content: documentContentSchema.optional(),
+})
+
+/** Fields accepted by api.comments.create. */
+export const createCommentFieldsSchema = z.object({
+  text: commentTextSchema,
+  quotedText: quotedTextSchema,
+})
+
+/** Fields accepted by api.collaborators.invite. */
+export const inviteFieldsSchema = z.object({
+  email: inviteEmailSchema,
+})
 
 // ── Mutation-args schemas (include Convex ID fields) ──────────────────────────
 
@@ -53,7 +79,7 @@ export const createCommentArgsSchema = z.object({
   docId: z.string().min(1),
   markId: z.string().min(1),
   text: commentTextSchema,
-  quotedText: z.string().max(COMMENT_QUOTED_MAX, `Quoted text must be ${COMMENT_QUOTED_MAX} characters or fewer`),
+  quotedText: quotedTextSchema,
 })
 
 /** Matches the args for api.collaborators.invite */

@@ -119,7 +119,39 @@ describe("documents.update", () => {
     const { t, owner, docId } = await scenario();
     await expect(
       asUser(t, owner).mutation(api.documents.update, { id: docId, content: "x".repeat(1_000_001) })
-    ).rejects.toThrow(/size limit/i);
+    ).rejects.toThrow(/maximum size/i);
+  });
+
+  it("rejects a title that is empty once trimmed", async () => {
+    const { t, owner, docId } = await scenario();
+    await expect(
+      asUser(t, owner).mutation(api.documents.update, { id: docId, title: "   " })
+    ).rejects.toThrow(/cannot be empty/i);
+  });
+
+  it("rejects a title over the length limit", async () => {
+    const { t, owner, docId } = await scenario();
+    await expect(
+      asUser(t, owner).mutation(api.documents.update, { id: docId, title: "x".repeat(501) })
+    ).rejects.toThrow(/500/);
+  });
+
+  it("stores the title trimmed", async () => {
+    const { t, owner, docId } = await scenario();
+    await asUser(t, owner).mutation(api.documents.update, { id: docId, title: "  Spaced  " });
+
+    const doc = await t.run(async (ctx) => await ctx.db.get(docId));
+    expect(doc?.title).toBe("Spaced");
+  });
+
+  it("rejects content that is not the HTML the editor produces", async () => {
+    const { t, owner, docId } = await scenario();
+    await expect(
+      asUser(t, owner).mutation(api.documents.update, {
+        id: docId,
+        content: '{"type":"doc","content":[]}',
+      })
+    ).rejects.toThrow(/format is invalid/i);
   });
 
   it("does not reveal validation feedback to a user without write access", async () => {

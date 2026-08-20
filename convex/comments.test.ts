@@ -124,6 +124,19 @@ describe("comments.create", () => {
     expect(comment?.authorId).toBe(editor);
   });
 
+  it("rejects a comment that is empty once trimmed", async () => {
+    const { t, editor, docId } = await scenario();
+    await expect(addComment(t, editor, docId, "   ")).rejects.toThrow(/cannot be empty/i);
+  });
+
+  it("stores the comment trimmed", async () => {
+    const { t, editor, docId } = await scenario();
+    const commentId = await addComment(t, editor, docId, "  padded  ");
+
+    const comment = await t.run(async (ctx) => await ctx.db.get(commentId));
+    expect(comment?.text).toBe("padded");
+  });
+
   it("rejects a comment over the length limit", async () => {
     const { t, editor, docId } = await scenario();
     await expect(addComment(t, editor, docId, "x".repeat(2001))).rejects.toThrow(/2000/);

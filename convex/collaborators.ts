@@ -3,16 +3,8 @@ import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { z } from "zod";
+import { inviteFieldsSchema } from "../lib/validation/documentSchema";
 import { getDocumentAccess, requireDocumentOwner } from "./model/documentAccess";
-
-const inviteSchema = z.object({
-  email: z
-    .string()
-    .min(1, 'Email is required')
-    .max(254, 'Email address is too long')
-    .email('Please enter a valid email address'),
-});
 
 async function getCurrentUserEmail(
   ctx: QueryCtx | MutationCtx,
@@ -34,7 +26,7 @@ export const invite = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const validation = inviteSchema.safeParse({ email: args.email });
+    const validation = inviteFieldsSchema.safeParse({ email: args.email });
     if (!validation.success) {
       const message = validation.error.issues[0]?.message ?? "Validation failed";
       console.error("[collaborators.invite] Validation failure", { userId, issues: validation.error.issues });
@@ -43,9 +35,11 @@ export const invite = mutation({
 
     await requireDocumentOwner(ctx, args.docId);
 
+    const inviteeEmail = validation.data.email.toLowerCase();
+
     // Prevent inviting yourself
     const myEmail = await getCurrentUserEmail(ctx, userId);
-    if (myEmail && myEmail.toLowerCase() === args.email.toLowerCase()) {
+    if (myEmail && myEmail.toLowerCase() === inviteeEmail) {
       throw new Error("Cannot invite yourself");
     }
 
@@ -58,14 +52,14 @@ export const invite = mutation({
       .take(100);
 
     const alreadyPending = existing.some(
-      (inv) => inv.inviteeEmail.toLowerCase() === args.email.toLowerCase()
+      (inv) => inv.inviteeEmail.toLowerCase() === inviteeEmail
     );
     if (alreadyPending) throw new Error("Invite already sent to this email");
 
     await ctx.db.insert("invites", {
       docId: args.docId,
       inviterUserId: userId,
-      inviteeEmail: args.email.toLowerCase(),
+      inviteeEmail,
       role: args.role,
       status: "pending",
     });

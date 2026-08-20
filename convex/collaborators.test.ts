@@ -103,6 +103,24 @@ describe("collaborators.invite", () => {
     ).rejects.toThrow(/valid email/i);
   });
 
+  it("accepts an address with surrounding whitespace and stores it trimmed", async () => {
+    const { t, owner, docId } = await scenario();
+
+    await asUser(t, owner).mutation(api.collaborators.invite, {
+      docId,
+      email: "  invitee@example.com  ",
+      role: "viewer",
+    });
+
+    const stored = await t.run(async (ctx) =>
+      await ctx.db
+        .query("invites")
+        .withIndex("by_doc_and_status", (q) => q.eq("docId", docId).eq("status", "pending"))
+        .collect()
+    );
+    expect(stored[0].inviteeEmail).toBe("invitee@example.com");
+  });
+
   it("rejects a duplicate pending invite", async () => {
     const { t, owner, docId } = await scenario();
     const args = { docId, email: "invitee@example.com", role: "editor" as const };

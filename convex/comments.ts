@@ -1,17 +1,12 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { z } from 'zod'
+import { createCommentFieldsSchema } from '../lib/validation/documentSchema'
 import {
   canWrite,
   getDocumentAccess,
   requireDocumentAccess,
 } from './model/documentAccess'
-
-const createCommentSchema = z.object({
-  text: z.string().min(1, 'Comment cannot be empty').max(2000, 'Comment must be 2000 characters or fewer').trim(),
-  quotedText: z.string().max(500, 'Quoted text must be 500 characters or fewer'),
-})
 
 export const create = mutation({
   args: {
@@ -25,7 +20,7 @@ export const create = mutation({
     // without being able to change its contents.
     const { userId } = await requireDocumentAccess(ctx, args.docId, 'read')
 
-    const validation = createCommentSchema.safeParse({ text: args.text, quotedText: args.quotedText })
+    const validation = createCommentFieldsSchema.safeParse({ text: args.text, quotedText: args.quotedText })
     if (!validation.success) {
       const message = validation.error.issues[0]?.message ?? 'Validation failed'
       console.error('[comments.create] Validation failure', { userId, issues: validation.error.issues })
