@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import type { Document } from '@/lib/services/types'
+import type { DocumentSummary } from '@/lib/services/types'
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
 import { formatDate } from '@/lib/utils'
 
 interface DocumentCardProps {
-  document: Document
+  document: DocumentSummary
 }
 
 export default function DocumentCard({ document }: DocumentCardProps) {
@@ -25,9 +25,8 @@ export default function DocumentCard({ document }: DocumentCardProps) {
 
   const { remove, update } = useDocumentService()
 
-  const preview = document.content
-    ? document.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180)
-    : ''
+  // Prepared by the server; see toSummary in convex/documents.ts.
+  const preview = document.preview
 
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault()

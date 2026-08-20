@@ -17,7 +17,8 @@ export default function DashboardPage() {
     if (!isLoading && !isAuthenticated) router.replace('/auth/login')
   }, [isAuthenticated, isLoading, router])
 
-  const documents = useQuery(documentQueries.list)
+  const result = useQuery(documentQueries.list)
+  const documents = result?.documents
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -64,11 +65,18 @@ export default function DashboardPage() {
         )}
 
         {documents !== undefined && documents.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {documents.map((doc) => (
-              <DocumentCard key={doc._id} document={doc} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {documents.map((doc) => (
+                <DocumentCard key={doc._id} document={doc} />
+              ))}
+            </div>
+            {result?.truncated && (
+              <p className="text-xs text-gray-400 text-center mt-6">
+                Showing your {documents.length} most recently updated documents.
+              </p>
+            )}
+          </>
         )}
       </main>
     </div>

@@ -22,6 +22,28 @@ export interface Document {
   userRole: UserRole;
 }
 
+/**
+ * A document as it appears in a list. Carries a short text preview instead of
+ * the body: the dashboard subscription would otherwise re-send every document
+ * in full whenever anyone saved one.
+ */
+export interface DocumentSummary {
+  _id: Id<"documents">;
+  _creationTime: number;
+  title: string;
+  preview: string;
+  ownerId: Id<"users">;
+  createdAt: number;
+  updatedAt: number;
+  userRole: UserRole;
+}
+
+/** What documents.list returns, with a flag for documents it left out. */
+export interface DocumentList {
+  documents: DocumentSummary[];
+  truncated: boolean;
+}
+
 export interface DocumentUpdate {
   title?: string;
   content?: string;

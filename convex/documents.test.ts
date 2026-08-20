@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import {
   addCollaborator,
   asUser,
@@ -49,8 +50,8 @@ describe("documents.list", () => {
     const { t, editor, docId } = await scenario();
     const ownDoc = await createDocument(t, editor, { title: "Editor's own" });
 
-    const docs = await asUser(t, editor).query(api.documents.list, {});
-    const byId = new Map(docs.map((d) => [d._id, d]));
+    const { documents } = await asUser(t, editor).query(api.documents.list, {});
+    const byId = new Map(documents.map((d) => [d._id, d]));
 
     expect(byId.get(ownDoc)?.userRole).toBe("owner");
     expect(byId.get(docId)?.userRole).toBe("editor");
@@ -58,7 +59,77 @@ describe("documents.list", () => {
 
   it("returns nothing to an anonymous caller", async () => {
     const { t } = await scenario();
-    expect(await t.query(api.documents.list, {})).toEqual([]);
+    expect(await t.query(api.documents.list, {})).toEqual({
+      documents: [],
+      truncated: false,
+    });
+  });
+
+  it("sends a text preview rather than the document body", async () => {
+    const { t, owner } = await scenario();
+    await createDocument(t, owner, {
+      title: "With a body",
+      content: "<p>Hello <strong>there</strong></p>",
+    });
+
+    const { documents } = await asUser(t, owner).query(api.documents.list, {});
+    const doc = documents.find((d) => d.title === "With a body")!;
+
+    expect(doc.preview).toBe("Hello there");
+    expect(doc).not.toHaveProperty("content");
+  });
+
+  it("caps the preview so one long document cannot dominate the payload", async () => {
+    const { t, owner } = await scenario();
+    await createDocument(t, owner, {
+      title: "Long",
+      content: `<p>${"word ".repeat(500)}</p>`,
+    });
+
+    const { documents } = await asUser(t, owner).query(api.documents.list, {});
+    expect(documents.find((d) => d.title === "Long")!.preview.length).toBe(180);
+  });
+
+  it("orders by most recently updated", async () => {
+    const { t, owner } = await scenario();
+    const older = await createDocument(t, owner, { title: "Older" });
+    const newer = await createDocument(t, owner, { title: "Newer" });
+
+    await asUser(t, owner).mutation(api.documents.update, { id: older, title: "Older, edited" });
+
+    const { documents } = await asUser(t, owner).query(api.documents.list, {});
+    expect(documents[0]._id).toBe(older);
+    expect(documents[1]._id).toBe(newer);
+  });
+
+  it("says nothing was left out when everything fits", async () => {
+    const { t, owner } = await scenario();
+    const { truncated } = await asUser(t, owner).query(api.documents.list, {});
+    expect(truncated).toBe(false);
+  });
+
+  it("keeps the most recently updated documents when there are too many", async () => {
+    const t = setupTest();
+    const owner = await createUser(t, "prolific@example.com");
+
+    // One past the limit, created oldest first.
+    const created: Array<Id<"documents">> = [];
+    for (let i = 0; i < 101; i++) {
+      created.push(await createDocument(t, owner, { title: `Doc ${i}` }));
+    }
+
+    // The oldest document becomes the most recently updated one.
+    await asUser(t, owner).mutation(api.documents.update, {
+      id: created[0],
+      title: "Oldest, just edited",
+    });
+
+    const { documents, truncated } = await asUser(t, owner).query(api.documents.list, {});
+
+    expect(truncated).toBe(true);
+    expect(documents).toHaveLength(100);
+    // Kept because it was updated, not because it was created recently.
+    expect(documents[0]._id).toBe(created[0]);
   });
 });
 
@@ -208,7 +279,8 @@ describe("documents.remove", () => {
     const { t, owner, editor, docId } = await scenario();
     await asUser(t, owner).mutation(api.documents.remove, { id: docId });
 
-    expect(await asUser(t, editor).query(api.documents.list, {})).toEqual([]);
+    const { documents } = await asUser(t, editor).query(api.documents.list, {});
+    expect(documents).toEqual([]);
   });
 
   it("leaves other documents alone", async () => {

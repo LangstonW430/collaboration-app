@@ -12,7 +12,11 @@ export default defineSchema({
     ownerId: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_owner", ["ownerId"]),
+  })
+    .index("by_owner", ["ownerId"])
+    // Matches the order the dashboard shows, so taking a page keeps the
+    // documents the user most recently worked on.
+    .index("by_owner_and_updated", ["ownerId", "updatedAt"]),
 
   collaborators: defineTable({
     docId: v.id("documents"),

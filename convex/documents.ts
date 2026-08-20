@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { updateDocumentFieldsSchema } from "../lib/validation/documentSchema";
 import { AUDIT_ACTIONS, recordAudit } from "./model/audit";
@@ -10,40 +11,81 @@ import {
   requireDocumentOwner,
 } from "./model/documentAccess";
 
-/** Returns all documents the current user owns or collaborates on. */
+/**
+ * The number of documents the dashboard loads in each category. A user with
+ * more than this sees the ones they worked on most recently; listForUser
+ * reports when it had to leave some out.
+ */
+const LIST_LIMIT = 100;
+
+/** Length of the plain-text preview the dashboard shows on each card. */
+const PREVIEW_LENGTH = 180;
+
+/**
+ * Reduces a stored document to what a list needs.
+ *
+ * The body is deliberately not returned. The dashboard shows a short text
+ * preview, and this is a live subscription: sending whole documents would push
+ * every body to every viewer again each time anyone saved anything.
+ */
+function toSummary(
+  doc: Doc<"documents">,
+  userRole: "owner" | "editor" | "viewer"
+) {
+  return {
+    _id: doc._id,
+    _creationTime: doc._creationTime,
+    title: doc.title,
+    preview: doc.content
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, PREVIEW_LENGTH),
+    ownerId: doc.ownerId,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+    userRole,
+  };
+}
+
+/**
+ * Returns the documents the current user owns or collaborates on, most
+ * recently updated first.
+ *
+ * `truncated` says whether either category hit LIST_LIMIT, so the dashboard can
+ * tell the user some documents are not shown rather than silently omitting
+ * them.
+ */
 export const list = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
+    if (!userId) return { documents: [], truncated: false };
 
     const ownedDocs = await ctx.db
       .query("documents")
-      .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+      .withIndex("by_owner_and_updated", (q) => q.eq("ownerId", userId))
       .order("desc")
-      .take(100);
+      .take(LIST_LIMIT);
 
     const collabs = await ctx.db
       .query("collaborators")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .take(100);
+      .take(LIST_LIMIT);
 
     const sharedDocs = (
-      await Promise.all(
-        collabs.map(async (c) => {
-          const doc = await ctx.db.get(c.docId);
-          if (!doc) return null;
-          return { ...doc, userRole: c.role as "editor" | "viewer" };
-        })
-      )
-    ).filter((d): d is NonNullable<typeof d> => d !== null);
+      await Promise.all(collabs.map((c) => ctx.db.get(c.docId)))
+    ).flatMap((doc, i) => (doc ? [toSummary(doc, collabs[i].role)] : []));
 
-    const all = [
-      ...ownedDocs.map((d) => ({ ...d, userRole: "owner" as const })),
+    const documents = [
+      ...ownedDocs.map((doc) => toSummary(doc, "owner")),
       ...sharedDocs,
-    ];
+    ].sort((a, b) => b.updatedAt - a.updatedAt);
 
-    return all.sort((a, b) => b.updatedAt - a.updatedAt);
+    return {
+      documents,
+      truncated: ownedDocs.length === LIST_LIMIT || collabs.length === LIST_LIMIT,
+    };
   },
 });
 
