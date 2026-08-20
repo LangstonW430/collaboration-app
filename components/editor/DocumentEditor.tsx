@@ -27,6 +27,7 @@ import Link from 'next/link'
 import type { Id } from '@/convex/_generated/dataModel'
 import { useValidatedMutation } from '@/lib/hooks/useValidatedMutation'
 import { useSyncManager } from '@/lib/sync/syncManager'
+import { shouldApplyRemoteUpdate, clampSelection } from '@/lib/sync/remoteContent'
 import type { SyncState } from '@/lib/types/sync'
 import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus'
 import { useToast } from '@/components/Toast'
@@ -83,12 +84,19 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   // Always-fresh save callback stored in a ref to avoid stale closure in subscriptions
   const performSaveRef = useRef<() => Promise<void>>(async () => {})
 
-  // Keep the title input in sync with remote changes (e.g. another user renaming the doc).
-  // Only skips the sync while a local save is in flight to avoid overwriting typed text.
+  // Keep the title input in sync with remote changes (e.g. another user
+  // renaming the doc), without overwriting a rename the user has not saved.
   useEffect(() => {
-    if (syncStateRef.current !== 'pending') {
-      setTitle(doc.title)
-    }
+    setTitle((current) =>
+      shouldApplyRemoteUpdate({
+        syncState: syncStateRef.current,
+        hasQueuedSave: latestSaveRef.current !== null,
+        incoming: doc.title,
+        current,
+      })
+        ? doc.title
+        : current
+    )
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.title])
   const [showInvite, setShowInvite] = useState(false)
@@ -268,6 +276,32 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   useEffect(() => {
     if (editor) editor.setEditable(editorEditable)
   }, [editor, editorEditable])
+
+  // Apply content saved by other collaborators. Convex pushes the new document
+  // over its subscription; without this the editor keeps rendering whatever it
+  // was mounted with, so remote edits only appear after a page reload.
+  //
+  // shouldApplyRemoteUpdate decides when this is safe — see its documentation.
+  useEffect(() => {
+    if (!editor) return
+
+    const incoming = doc.content ?? ''
+    const applicable = shouldApplyRemoteUpdate({
+      syncState: syncStateRef.current,
+      hasQueuedSave: latestSaveRef.current !== null,
+      incoming,
+      current: editor.getHTML(),
+    })
+    if (!applicable) return
+
+    // setContent resets the selection to the top of the document, which would
+    // yank the caret away from a reader mid-document, so put it back.
+    const { from, to } = editor.state.selection
+    editor.commands.setContent(incoming, { emitUpdate: false })
+    editor.commands.setTextSelection(clampSelection(from, to, editor.state.doc.content.size))
+  // syncStateRef and latestSaveRef are refs — read at run time, not deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.content, editor])
 
   // When the sync manager signals pending after a backoff retry, re-attempt the save
   useEffect(() => {
