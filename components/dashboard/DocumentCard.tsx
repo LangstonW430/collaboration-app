@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import type { DocumentSummary } from '@/lib/services/types'
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
+import { useToast } from '@/components/Toast'
 import { formatDate } from '@/lib/utils'
 
 interface DocumentCardProps {
@@ -24,6 +25,7 @@ export default function DocumentCard({ document }: DocumentCardProps) {
   }, [document.title, renaming])
 
   const { remove, update } = useDocumentService()
+  const toast = useToast()
 
   // Prepared by the server; see toSummary in convex/documents.ts.
   const preview = document.preview
@@ -33,7 +35,14 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     e.stopPropagation()
     if (!confirming) { setConfirming(true); return }
     setDeleting(true)
-    await remove(document._id)
+    try {
+      await remove(document._id)
+      // No state reset on success: the card unmounts when the list updates.
+    } catch {
+      toast.error('Could not delete this document.')
+      setDeleting(false)
+      setConfirming(false)
+    }
   }
 
   function handleCancelDelete(e: React.MouseEvent) {
@@ -54,7 +63,13 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     setTitleValue(trimmed)
     setRenaming(false)
     if (trimmed !== document.title) {
-      await update(document._id, { title: trimmed })
+      try {
+        await update(document._id, { title: trimmed })
+      } catch {
+        // Put the old title back, so what is shown is what is stored.
+        setTitleValue(document.title || 'Untitled Document')
+        toast.error('Could not rename this document.')
+      }
     }
   }
 

@@ -39,7 +39,12 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
   }
 
   async function handleRemove(collaboratorId: Id<'collaborators'>) {
-    await removeCollaborator(docId, collaboratorId)
+    setError(null)
+    try {
+      await removeCollaborator(docId, collaboratorId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove collaborator')
+    }
   }
 
   return (

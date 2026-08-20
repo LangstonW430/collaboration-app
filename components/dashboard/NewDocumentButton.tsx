@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
+import { useToast } from '@/components/Toast'
 
 interface NewDocumentButtonProps {
   variant?: 'default' | 'inline'
@@ -12,6 +13,7 @@ export default function NewDocumentButton({ variant = 'default' }: NewDocumentBu
   const [loading, setLoading] = useState(false)
   const { create } = useDocumentService()
   const router = useRouter()
+  const toast = useToast()
 
   async function handleCreate() {
     setLoading(true)
@@ -20,6 +22,9 @@ export default function NewDocumentButton({ variant = 'default' }: NewDocumentBu
       router.push(`/doc/${docId}`)
     } catch (err) {
       console.error('Failed to create document:', err)
+      // Carries the server's message, which is how the caller learns they have
+      // hit the rate limit and how long to wait.
+      toast.error(err instanceof Error ? err.message : 'Could not create a document.')
       setLoading(false)
     }
   }
