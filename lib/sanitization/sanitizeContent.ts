@@ -17,8 +17,8 @@ const ALLOWED_TAGS = [
   'blockquote', 'pre',
   // Links & media
   'a', 'img', 'div', 'span', 'figure', 'figcaption',
-  // Tables
-  'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  // Tables (colgroup/col carry TipTap's resizable column widths)
+  'table', 'thead', 'tbody', 'tr', 'th', 'td', 'colgroup', 'col',
   // Structural
   'hr',
   // Task-list checkbox (TipTap renders <input type="checkbox">)
@@ -33,15 +33,25 @@ const ALLOWED_ATTR = [
   // Links
   'target', 'rel',
   // Tables
-  'colspan', 'rowspan',
+  'colspan', 'rowspan', 'colwidth',
   // Checkbox (task list)
   'type', 'checked', 'disabled', 'contenteditable',
   // Inline style (used by TipTap text-color and highlight extensions)
   'style',
-  // TipTap extension data attributes
+  // TipTap extension data attributes. Every attribute a node or mark in
+  // components/editor/extensions emits must be listed here, or the editor's
+  // own output is destroyed on the next autosave.
   'data-type', 'data-checked', 'data-id', 'data-youtube-video',
+  // Highlight (multicolor) — TipTap re-parses the colour from data-color
+  'data-color',
+  // ConvexImageExtension — storage ID resolves the signed URL at render time
+  'data-storage-id', 'data-align',
+  // CommentMark — anchors a comment thread to a text range
+  'data-comment-id',
   // YouTube iframe attributes
   'frameborder', 'allowfullscreen', 'allow', 'width', 'height',
+  'autoplay', 'disablekbcontrols', 'enableiframeapi', 'endtime',
+  'ivloadpolicy', 'loop', 'modestbranding', 'origin', 'playlist', 'start',
 ]
 
 const YOUTUBE_ORIGIN_RE = /^https:\/\/(www\.)?youtube(?:-nocookie)?\.com\//i
