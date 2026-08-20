@@ -1,6 +1,7 @@
 'use client'
 
 import { Component, type ReactNode, type ErrorInfo } from 'react'
+import { captureException } from '@/lib/monitoring/sentry'
 
 interface Props {
   children: ReactNode
@@ -24,9 +25,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sentry = (typeof window !== 'undefined' ? (window as any).Sentry : null)
-    sentry?.captureException(error, { extra: { componentStack: info.componentStack } })
+    // Reported through the SDK directly. @sentry/nextjs does not expose itself
+    // on window, so the previous window.Sentry lookup never found anything and
+    // no boundary error was ever reported.
+    captureException(error, { componentStack: info.componentStack })
   }
 
   handleRetry = () => {

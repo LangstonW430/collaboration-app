@@ -27,7 +27,7 @@ export default withSentryConfig(nextConfig, {
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.SENTRY_AUTH_TOKEN,
   // Skip webpack plugins when no auth token is present (local dev).
-  disableSentryWebpackConfig: !process.env.SENTRY_AUTH_TOKEN,
+  webpack: { disableSentryConfig: !process.env.SENTRY_AUTH_TOKEN },
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
 });

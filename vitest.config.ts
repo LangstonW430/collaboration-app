@@ -52,13 +52,10 @@ export default defineConfig({
         'lib/services/documentService.ts',
         'lib/services/collaborationService.ts',
         // Third-party integration wrappers — cannot unit test without extensive mocking
-        'lib/logging/logger.ts',
         'lib/logging/requestLogger.ts',
         'lib/monitoring/sentry.ts',
         'lib/monitoring/convexErrors.ts',
         // React hooks and context providers — require Convex/Auth providers in test env
-        'lib/audit/auditLog.ts',
-        'lib/hooks/useLogger.ts',
         'lib/hooks/useDocumentService.tsx',
         'lib/hooks/useAuthService.tsx',
         'lib/context/ConnectionContext.tsx',

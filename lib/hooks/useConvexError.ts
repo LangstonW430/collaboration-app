@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import { handleConvexError } from '@/lib/monitoring/convexErrors'
 
 export type ConvexErrorType = 'network' | 'auth' | 'validation' | 'unknown'
 
@@ -79,6 +80,9 @@ export function useConvexError<TArgs, TReturn = any>(
           const classified = classifyError(err)
           // Auth errors are not retryable; also stop after the third attempt
           if (classified.type === 'auth' || attempt === 2) {
+            // Only once the call has genuinely given up, so a failure that a
+            // retry recovers from does not raise an alert.
+            handleConvexError(err, { errorType: classified.type, attempts: attempt + 1 })
             setError(classified)
             optionsRef.current.onError?.(classified)
             setIsLoading(false)

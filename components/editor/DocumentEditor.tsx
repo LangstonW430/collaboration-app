@@ -33,6 +33,7 @@ import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus'
 import { useToast } from '@/components/Toast'
 import { sanitizeHtml } from '@/lib/sanitization/sanitizeContent'
 import { checkRateLimit } from '@/lib/rateLimit'
+import { measureOperation } from '@/lib/monitoring/performance'
 import { saveDocumentArgsSchema, createCommentArgsSchema } from '@/lib/validation'
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
 import { ConvexImageExtension } from './extensions/ConvexImageExtension'
@@ -176,7 +177,9 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       ? { ...updates, content: sanitizeHtml(updates.content) }
       : updates
     manager.onSaveAttempt()
-    const success = await saveDocument({ id: doc._id, ...sanitized })
+    const success = await measureOperation('document.save', () =>
+      saveDocument({ id: doc._id, ...sanitized })
+    )
     if (success) {
       manager.onSaveSuccess(Date.now())
       latestSaveRef.current = null
