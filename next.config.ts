@@ -8,6 +8,10 @@ const tiptapPackages = readdirSync(
 ).map((pkg) => `@tiptap/${pkg}`);
 
 const nextConfig: NextConfig = {
+  // Linting runs as its own step (`npm run lint`) against the flat config in
+  // eslint.config.mjs. Next's build-time pass uses its own legacy invocation,
+  // which cannot read that config.
+  eslint: { ignoreDuringBuilds: true },
   transpilePackages: [
     ...tiptapPackages,
     "lowlight",

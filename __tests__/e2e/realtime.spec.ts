@@ -155,7 +155,7 @@ test.describe('Real-time updates', () => {
 
   test('going offline shows the "Offline" banner and disables editing', async ({
     page,
-    context,
+    context: _context,
   }) => {
     await signIn(page, TEST_USERS.alice)
     await page.getByRole('button', { name: /new|create/i }).first().click()

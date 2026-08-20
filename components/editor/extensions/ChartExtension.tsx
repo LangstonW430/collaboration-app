@@ -46,6 +46,10 @@ function ChartView({ node, updateAttributes, selected, editor }: NodeViewProps) 
       setDraftData(dataStr)
       setDraftColors(colorsStr)
     }
+  // Seeds the draft fields when the panel opens. The chart's own attributes are
+  // deliberately not dependencies: they change as the user edits, and reacting
+  // to them would overwrite what they are typing.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing])
 
   useEffect(() => {

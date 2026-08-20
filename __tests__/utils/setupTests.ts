@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { vi, afterEach } from 'vitest'
+import { vi, afterAll, afterEach, beforeAll } from 'vitest'
 
 // Suppress noisy React 18 act() warnings in test output
 const originalError = console.error

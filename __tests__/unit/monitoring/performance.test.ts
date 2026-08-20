@@ -46,7 +46,7 @@ describe('measureOperation', () => {
 describe('getMetrics', () => {
   beforeEach(async () => {
     // Seed a few samples under a known name
-    for (const ms of [10, 20, 30, 40, 50]) {
+    for (const _ms of [10, 20, 30, 40, 50]) {
       await measureOperation('latency', async () => {
         // We can't control real time here, but we can measure the function exists
       })

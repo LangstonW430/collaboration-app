@@ -55,7 +55,7 @@ const HIGHLIGHT_COLORS = [
 ]
 
 export type { UserRole, DocumentWithRole } from '@/lib/services/types'
-import type { UserRole, DocumentWithRole } from '@/lib/services/types'
+import type { DocumentWithRole } from '@/lib/services/types'
 
 interface DocumentEditorProps {
   document: DocumentWithRole
@@ -97,7 +97,6 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
         ? doc.title
         : current
     )
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.title])
   const [showInvite, setShowInvite] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
@@ -300,7 +299,6 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     editor.commands.setContent(incoming, { emitUpdate: false })
     editor.commands.setTextSelection(clampSelection(from, to, editor.state.doc.content.size))
   // syncStateRef and latestSaveRef are refs — read at run time, not deps.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.content, editor])
 
   // When the sync manager signals pending after a backoff retry, re-attempt the save
