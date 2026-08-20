@@ -55,8 +55,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [addToast]
   )
 
+  // Memoised so a re-render of this provider does not re-render every consumer.
+  const contextValue = useMemo(
+    () => ({ toasts, toast, dismiss }),
+    [toasts, toast, dismiss]
+  )
+
   return (
-    <ToastContext.Provider value={{ toasts, toast, dismiss }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </ToastContext.Provider>
