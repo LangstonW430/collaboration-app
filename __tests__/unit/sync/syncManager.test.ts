@@ -174,21 +174,41 @@ describe('SyncManager', () => {
     expect(m.getState()).toBe('conflict')
   })
 
-  it('suppresses own-save echo via _savedJustNow flag', () => {
+  it('ignores the echo of our own save', () => {
     const m = makeManager(1000)
     m.start()
     m.onLocalChange()
-    m.onSaveSuccess(2000)      // sets _savedJustNow = true
+    m.onSaveSuccess(2000)      // the server reported updatedAt = 2000
 
-    // Immediately after save success, reactive query fires with same timestamp
+    // The subscription delivers the document we just wrote.
     m.onServerUpdate(2000)
-    expect(m.getState()).toBe('synced') // no conflict
+    expect(m.getState()).toBe('synced')
+  })
 
-    // After the setTimeout(0) clears the flag, a real other-user update would conflict
-    vi.runAllTimers()
-    // State should remain synced with no pending changes
-    m.onServerUpdate(3000)
-    expect(m.getState()).toBe('synced') // hasPendingChanges=false so no conflict
+  it('does not raise a conflict against our own save when typing continues', () => {
+    // The save round trip takes long enough that the user keeps typing, so
+    // pending changes exist again by the time our own write echoes back. The
+    // echo must not be mistaken for someone else's edit.
+    const m = makeManager(1000)
+    m.start()
+    m.onLocalChange()
+    m.onSaveSuccess(2000)
+    m.onLocalChange()          // still typing — hasPendingChanges = true again
+
+    m.onServerUpdate(2000)     // our own write, arriving over the subscription
+    expect(m.getState()).toBe('pending')
+
+    m.onServerUpdate(3000)     // now someone else really does save
+    expect(m.getState()).toBe('conflict')
+  })
+
+  it('ignores an update older than what it already knows about', () => {
+    const m = makeManager(5000)
+    m.start()
+    m.onLocalChange()
+    m.onServerUpdate(4000)     // out-of-order delivery
+    expect(m.getState()).toBe('pending')
+    expect(m.getVersion().serverTimestamp).toBe(5000)
   })
 
   // --- acknowledgeConflict ---

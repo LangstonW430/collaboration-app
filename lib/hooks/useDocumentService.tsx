@@ -42,9 +42,7 @@ export function DocumentServiceProvider({ children }: { children: ReactNode }) {
       create: () => _create(),
 
       update: (id: Id<"documents">, updates: DocumentUpdate) =>
-        _update({ id, title: updates.title, content: updates.content }).then(
-          () => undefined
-        ),
+        _update({ id, title: updates.title, content: updates.content }),
 
       remove: (id: Id<"documents">) =>
         _remove({ id }).then(() => undefined),

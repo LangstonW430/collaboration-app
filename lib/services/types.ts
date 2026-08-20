@@ -77,8 +77,11 @@ export interface Comment {
 export interface DocumentMutations {
   /** Create a blank document; resolves with its Convex ID. */
   create(): Promise<Id<"documents">>;
-  /** Persist title / content changes; resolves when the write is confirmed. */
-  update(id: Id<"documents">, updates: DocumentUpdate): Promise<void>;
+  /**
+   * Persist title / content changes. Resolves with the server's updatedAt for
+   * the write, so the caller can tell its own save apart from someone else's.
+   */
+  update(id: Id<"documents">, updates: DocumentUpdate): Promise<{ updatedAt: number }>;
   /** Permanently delete an owned document. */
   remove(id: Id<"documents">): Promise<void>;
   /**

@@ -82,7 +82,11 @@ export const create = mutation({
   },
 });
 
-/** Updates the title and/or content. Owner or editor only. */
+/**
+ * Updates the title and/or content. Owner or editor only.
+ * Returns the updatedAt it wrote, which the client uses to recognise the echo
+ * of its own save.
+ */
 export const update = mutation({
   args: {
     id: v.id("documents"),
@@ -105,11 +109,16 @@ export const update = mutation({
     // Writes the validated values, so a field is stored trimmed rather than as
     // it arrived. Only fields the caller actually sent are patched.
     const { title, content } = validation.data;
+    const updatedAt = Date.now();
     await ctx.db.patch(args.id, {
       ...(title !== undefined ? { title } : {}),
       ...(content !== undefined ? { content } : {}),
-      updatedAt: Date.now(),
+      updatedAt,
     });
+
+    // Returned so the client records the server's own timestamp rather than
+    // guessing with its clock. See SyncManager.onServerUpdate.
+    return { updatedAt };
   },
 });
 

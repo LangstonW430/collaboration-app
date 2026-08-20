@@ -14,7 +14,6 @@ export class SyncManager {
   private _subscribers: Set<StateSubscriber> = new Set()
   private _retryCount = 0
   private _retryTimer: ReturnType<typeof setTimeout> | null = null
-  private _savedJustNow = false
   private _resolver = new ConflictResolver()
 
   constructor(documentId: string, initialServerTimestamp: number) {
@@ -68,8 +67,8 @@ export class SyncManager {
     this._emit({ type: 'save_started', documentId: this._version.documentId, timestamp: Date.now() })
   }
 
+  /** @param serverTimestamp the updatedAt the server reported for this write. */
   onSaveSuccess(serverTimestamp: number): void {
-    this._savedJustNow = true
     this._retryCount = 0
     this._version = {
       ...this._version,
@@ -78,9 +77,6 @@ export class SyncManager {
     }
     this._setState('synced')
     this._emit({ type: 'save_succeeded', documentId: this._version.documentId, timestamp: Date.now() })
-
-    // Clear the flag after a tick so onServerUpdate triggered by this save is ignored
-    setTimeout(() => { this._savedJustNow = false }, 0)
   }
 
   onSaveFailure(error: unknown): void {
@@ -102,7 +98,10 @@ export class SyncManager {
   }
 
   onServerUpdate(serverTimestamp: number): void {
-    if (this._savedJustNow) return
+    // At or behind what we already know about: this is the echo of our own
+    // save coming back over the subscription, or an out-of-order delivery.
+    // Either way there is nothing new here to conflict with.
+    if (serverTimestamp <= this._version.serverTimestamp) return
 
     if (this._resolver.detectConflict(this._version, serverTimestamp)) {
       this._emit({ type: 'conflict_detected', documentId: this._version.documentId, timestamp: Date.now(), data: { serverTimestamp } })

@@ -259,3 +259,17 @@ describe("documents.create", () => {
     await expect(t.mutation(api.documents.create, {})).rejects.toThrow(/Not authenticated/);
   });
 });
+
+describe("documents.update return value", () => {
+  it("reports the timestamp it wrote, so the client can spot its own echo", async () => {
+    const { t, owner, docId } = await scenario();
+
+    const result = await asUser(t, owner).mutation(api.documents.update, {
+      id: docId,
+      title: "Renamed",
+    });
+
+    const stored = await t.run(async (ctx) => await ctx.db.get(docId));
+    expect(result.updatedAt).toBe(stored?.updatedAt);
+  });
+});

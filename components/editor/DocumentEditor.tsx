@@ -115,9 +115,15 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
 
   const { update, generateUploadUrl, createComment } = useDocumentService()
 
+  // useValidatedMutation reports success as a boolean, so the server's
+  // updatedAt is captured here on the way past.
+  const savedAtRef = useRef<number | null>(null)
   const { execute: saveDocument, validationErrors: saveErrors } = useValidatedMutation(
-    ({ id, title, content }: { id: Id<'documents'>; title?: string; content?: string }) =>
-      update(id, { title, content }),
+    async ({ id, title, content }: { id: Id<'documents'>; title?: string; content?: string }) => {
+      const result = await update(id, { title, content })
+      savedAtRef.current = result.updatedAt
+      return result
+    },
     saveDocumentArgsSchema
   )
   const { execute: submitCommentSafe, isLoading: isSubmittingComment, validationErrors: commentErrors } = useValidatedMutation(
@@ -181,7 +187,10 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       saveDocument({ id: doc._id, ...sanitized })
     )
     if (success) {
-      manager.onSaveSuccess(Date.now())
+      // The server's timestamp, not this machine's clock: the sync manager
+      // compares it against what the subscription pushes back to recognise
+      // this save's own echo, and clock skew would break that comparison.
+      manager.onSaveSuccess(savedAtRef.current ?? Date.now())
       latestSaveRef.current = null
     } else {
       const msg = saveErrors?._root ?? saveErrors?.title ?? saveErrors?.content
