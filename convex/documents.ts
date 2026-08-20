@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { z } from "zod";
-import { getDocumentAccess, requireDocumentAccess } from "./model/documentAccess";
+import {
+  getDocumentAccess,
+  requireDocumentAccess,
+  requireDocumentOwner,
+} from "./model/documentAccess";
 
 const TITLE_MAX = 500;
 const CONTENT_MAX = 1_000_000;
@@ -103,15 +107,43 @@ export const update = mutation({
   },
 });
 
-/** Permanently deletes a document the caller owns. */
+/**
+ * Permanently deletes a document the caller owns, along with every row that
+ * hangs off it. Without the cascade, deleted documents leave behind
+ * collaborator rows that keep appearing in documents.list, invites that can
+ * still be accepted, and comments that outlive the text they annotate.
+ *
+ * Rows are collected and deleted in one transaction, which suits the volumes
+ * a single document accumulates. Files in storage are deliberately left
+ * alone: the same upload can be embedded in more than one document, so
+ * reclaiming them needs reference counting rather than a cascade.
+ */
 export const remove = mutation({
   args: { id: v.id("documents") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    await requireDocumentOwner(ctx, args.id);
 
-    const doc = await ctx.db.get(args.id);
-    if (!doc || doc.ownerId !== userId) throw new Error("Document not found");
+    const collaborators = await ctx.db
+      .query("collaborators")
+      .withIndex("by_doc", (q) => q.eq("docId", args.id))
+      .collect();
+
+    // Index prefix — matches every invite for the document, any status.
+    const invites = await ctx.db
+      .query("invites")
+      .withIndex("by_doc_and_status", (q) => q.eq("docId", args.id))
+      .collect();
+
+    const comments = await ctx.db
+      .query("comments")
+      .withIndex("by_doc", (q) => q.eq("docId", args.id))
+      .collect();
+
+    await Promise.all([
+      ...collaborators.map((row) => ctx.db.delete(row._id)),
+      ...invites.map((row) => ctx.db.delete(row._id)),
+      ...comments.map((row) => ctx.db.delete(row._id)),
+    ]);
 
     await ctx.db.delete(args.id);
   },
