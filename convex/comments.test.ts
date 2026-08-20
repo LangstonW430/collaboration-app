@@ -216,3 +216,59 @@ describe("comments.deleteComment", () => {
     ).rejects.toThrow(/Not authorized/);
   });
 });
+
+describe("comments.list author details", () => {
+  it("attaches each comment's author email", async () => {
+    const t = setupTest();
+    const owner = await createUser(t, "owner@example.com");
+    const editor = await createUser(t, "editor@example.com");
+    const docId = await createDocument(t, owner);
+    await addCollaborator(t, docId, editor, "editor");
+
+    await asUser(t, owner).mutation(api.comments.create, {
+      docId, markId: "m1", text: "from owner", quotedText: "q",
+    });
+    await asUser(t, editor).mutation(api.comments.create, {
+      docId, markId: "m2", text: "from editor", quotedText: "q",
+    });
+
+    const comments = await asUser(t, owner).query(api.comments.list, { docId });
+    const byText = new Map(comments.map((c) => [c.text, c.authorEmail]));
+
+    expect(byText.get("from owner")).toBe("owner@example.com");
+    expect(byText.get("from editor")).toBe("editor@example.com");
+  });
+
+  it("labels a comment whose author no longer exists", async () => {
+    const t = setupTest();
+    const owner = await createUser(t, "owner@example.com");
+    const editor = await createUser(t, "editor@example.com");
+    const docId = await createDocument(t, owner);
+    await addCollaborator(t, docId, editor, "editor");
+    await asUser(t, editor).mutation(api.comments.create, {
+      docId, markId: "m1", text: "orphaned", quotedText: "q",
+    });
+
+    await t.run(async (ctx) => await ctx.db.delete(editor));
+
+    const [comment] = await asUser(t, owner).query(api.comments.list, { docId });
+    expect(comment.authorEmail).toBe("Unknown");
+  });
+
+  it("gives every comment by one author the same email", async () => {
+    const t = setupTest();
+    const owner = await createUser(t, "owner@example.com");
+    const docId = await createDocument(t, owner);
+    for (let i = 0; i < 5; i++) {
+      await asUser(t, owner).mutation(api.comments.create, {
+        docId, markId: `m${i}`, text: `note ${i}`, quotedText: "q",
+      });
+    }
+
+    const comments = await asUser(t, owner).query(api.comments.list, { docId });
+    expect(comments).toHaveLength(5);
+    expect(new Set(comments.map((c) => c.authorEmail))).toEqual(
+      new Set(["owner@example.com"])
+    );
+  });
+});

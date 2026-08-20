@@ -57,13 +57,22 @@ export const list = query({
       )
       .order('asc')
       .take(100)
-    return await Promise.all(
-      comments.map(async (c) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const author = (await ctx.db.get(c.authorId)) as any
-        return { ...c, authorEmail: (author?.email as string | undefined) ?? 'Unknown' }
-      })
+
+    // One read per author rather than one per comment: a thread is usually a
+    // few people saying many things.
+    const authorIds = [...new Set(comments.map((c) => c.authorId))]
+    const emailByAuthor = new Map(
+      await Promise.all(
+        authorIds.map(
+          async (id) => [id, (await ctx.db.get(id))?.email ?? 'Unknown'] as const
+        )
+      )
     )
+
+    return comments.map((c) => ({
+      ...c,
+      authorEmail: emailByAuthor.get(c.authorId) ?? 'Unknown',
+    }))
   },
 })
 

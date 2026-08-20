@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useMemo,
   type ReactNode,
 } from 'react'
 import { useConvexAuth } from 'convex/react'
@@ -50,8 +51,15 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     ? 'auth_expired'
     : 'connected'
 
+  // Memoised: a fresh object here re-renders every consumer — which includes
+  // the editor — on each render of this provider.
+  const value = useMemo(
+    () => ({ state, isOnline, isAuthenticated, isAuthLoading }),
+    [state, isOnline, isAuthenticated, isAuthLoading]
+  )
+
   return (
-    <ConnectionContext.Provider value={{ state, isOnline, isAuthenticated, isAuthLoading }}>
+    <ConnectionContext.Provider value={value}>
       {children}
     </ConnectionContext.Provider>
   )
