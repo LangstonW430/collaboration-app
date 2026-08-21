@@ -15,6 +15,7 @@ import type * as documents from "../documents.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as logging from "../logging.js";
+import type * as seed from "../seed.js";
 
 import type {
   ApiFromModules,
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   http: typeof http;
   logging: typeof logging;
+  seed: typeof seed;
 }>;
 
 /**
