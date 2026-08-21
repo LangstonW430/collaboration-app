@@ -130,6 +130,35 @@ jobs:
             echo "::error::CONVEX_DEPLOY_KEY is not set, so the backend cannot be deployed and E2E would test a stale one. Add it under Settings -> Secrets and variables -> Actions."
             exit 1
           fi
+
+          # A deploy key names its target: "prod:<deployment>|<token>" or
+          # "dev:<deployment>|<token>". If that deployment is not the one the
+          # app connects to, CI deploys one backend and tests another, which
+          # looks like a clean deploy followed by inexplicable failures. Values
+          # are never echoed, only the verdict.
+          case "$CONVEX_DEPLOY_KEY" in
+            *"|"*) ;;
+            *) echo "::error::CONVEX_DEPLOY_KEY is malformed. Copy it again from the Convex dashboard."; exit 1 ;;
+          esac
+
+          key_prefix="${CONVEX_DEPLOY_KEY%%|*}"
+          case "$key_prefix" in
+            prod:*|dev:*) ;;
+            preview:*)
+              echo "::error::CONVEX_DEPLOY_KEY is a preview key. Preview keys build a new deployment per branch with an empty database, so the E2E accounts would not exist and NEXT_PUBLIC_CONVEX_URL would not point at it. Use the deployment key for the deployment that URL names."
+              exit 1 ;;
+            *)
+              echo "::error::CONVEX_DEPLOY_KEY is not a deployment key. Generate one for a specific deployment under Convex dashboard -> Settings -> Deploy Keys."
+              exit 1 ;;
+          esac
+
+          key_deployment="${key_prefix#*:}"
+          url_deployment="$(printf '%s' "$NEXT_PUBLIC_CONVEX_URL" | sed -E 's#^https?://##; s#\..*$##')"
+          if [ "$key_deployment" != "$url_deployment" ]; then
+            echo "::error::CONVEX_DEPLOY_KEY and NEXT_PUBLIC_CONVEX_URL name different deployments, so CI would deploy the backend to one and run the tests against another. Generate the deploy key for the deployment the URL names."
+            exit 1
+          fi
+
           npx convex deploy
 
       - name: Run E2E tests
