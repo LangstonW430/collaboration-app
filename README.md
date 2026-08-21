@@ -86,11 +86,32 @@ npm run test:coverage  # coverage report
 ```
 
 End-to-end tests are separate and need a running deployment, so they are not
-part of `npm test` or CI:
+part of `npm test`:
 
 ```bash
 npm run e2e       # requires `npx convex dev` and `npm run dev` running
 ```
+
+### CI secrets
+
+E2E drives a real Convex deployment, so CI deploys the backend from the commit
+under test before running the suite. Without that it would exercise the
+frontend from HEAD against whatever backend was last pushed by hand, and any
+change to a Convex function fails E2E while being perfectly correct.
+
+Set these under **Settings → Secrets and variables → Actions**:
+
+| Secret | Purpose |
+|---|---|
+| `CONVEX_DEPLOY_KEY` | Lets CI run `npx convex deploy`. Generate it in the Convex dashboard under **Settings → Deploy Keys**. |
+| `NEXT_PUBLIC_CONVEX_URL` | The deployment the app connects to during the run. |
+| `E2E_USER1_EMAIL` / `E2E_USER1_PASSWORD` | First test account. |
+| `E2E_USER2_EMAIL` / `E2E_USER2_PASSWORD` | Second test account, for the collaboration and real-time specs. |
+
+`CONVEX_DEPLOY_KEY` and `NEXT_PUBLIC_CONVEX_URL` must refer to the **same
+deployment**. If they point at different ones, CI deploys to one backend and
+tests against another, which reproduces the stale-backend failure it exists to
+prevent.
 
 ## Project structure
 
