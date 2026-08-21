@@ -42,7 +42,14 @@ export function DocumentServiceProvider({ children }: { children: ReactNode }) {
       create: () => _create(),
 
       update: (id: Id<"documents">, updates: DocumentUpdate) =>
-        _update({ id, title: updates.title, content: updates.content }),
+        _update({ id, title: updates.title, content: updates.content }).then(
+          // A deployment one version behind returns null here, because it
+          // predates documents.update reporting its updatedAt. Normalising at
+          // this boundary keeps the DocumentService contract true, so a
+          // backend that has not caught up yet degrades to the old
+          // client-clock behaviour instead of throwing on every save.
+          (result) => ({ updatedAt: result?.updatedAt ?? Date.now() })
+        ),
 
       remove: (id: Id<"documents">) =>
         _remove({ id }).then(() => undefined),

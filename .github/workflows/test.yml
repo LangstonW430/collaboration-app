@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Lets the full suite, E2E included, be run against a branch before it
+  # reaches main.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -86,6 +89,7 @@ jobs:
     timeout-minutes: 20
     # Only run E2E when the secret is configured (avoid failing on forks)
     if: >
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
        vars.RUN_E2E == 'true')
@@ -113,6 +117,20 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+
+      - name: Deploy Convex functions
+        # The suite drives a real deployment, so the backend it exercises has
+        # to be the one built from this commit. Without this step CI runs the
+        # frontend from HEAD against whatever backend was last pushed by hand,
+        # and any change to a Convex function fails E2E while being correct.
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          if [ -z "$CONVEX_DEPLOY_KEY" ]; then
+            echo "::error::CONVEX_DEPLOY_KEY is not set, so the backend cannot be deployed and E2E would test a stale one. Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          npx convex deploy
 
       - name: Run E2E tests
         run: npm run e2e
