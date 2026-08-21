@@ -132,7 +132,7 @@ function SingleToast({
   return (
     <div
       role="alert"
-      className={`pointer-events-auto flex items-start gap-2.5 bg-white border border-gray-200 border-l-4 ${BORDER_COLOR[toast.type]} rounded-lg shadow-lg px-3.5 py-3 max-w-sm w-full`}
+      className={`toast-enter pointer-events-auto flex items-start gap-2.5 bg-white border border-gray-200 border-l-4 ${BORDER_COLOR[toast.type]} rounded-lg shadow-lg px-3.5 py-3 max-w-sm w-full`}
     >
       {ICON[toast.type]}
       <p className="flex-1 text-sm text-gray-800 leading-snug">{toast.message}</p>

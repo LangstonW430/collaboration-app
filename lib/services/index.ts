@@ -20,6 +20,6 @@ export type {
   AuthServiceMethods,
 } from "./types";
 
-export { documentQueries, fileQueries, presenceQueries } from "./documentService";
+export { documentQueries, fileQueries, presenceQueries, userQueries } from "./documentService";
 export { collaborationQueries, commentQueries } from "./collaborationService";
 export { formatAuthError } from "./authService";

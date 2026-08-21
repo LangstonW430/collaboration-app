@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from 'convex/react'
 import type { Id } from '@/convex/_generated/dataModel'
 import type { Editor } from '@tiptap/react'
@@ -16,6 +17,9 @@ interface Props {
 export default function CommentsSidebar({ editor, docId, canEdit, onClose }: Props) {
   const comments = useQuery(commentQueries.list, { docId }) ?? []
   const { resolveComment, deleteComment } = useDocumentService()
+  // Deleting is permanent, so the button asks twice; tracks which comment is
+  // mid-confirmation.
+  const [confirmingDelete, setConfirmingDelete] = useState<Id<'comments'> | null>(null)
 
   function removeMarkFromEditor(markId: string) {
     if (!editor) return
@@ -57,6 +61,11 @@ export default function CommentsSidebar({ editor, docId, canEdit, onClose }: Pro
   }
 
   async function handleDelete(commentId: Id<'comments'>, markId: string) {
+    if (confirmingDelete !== commentId) {
+      setConfirmingDelete(commentId)
+      return
+    }
+    setConfirmingDelete(null)
     await deleteComment(commentId)
     removeMarkFromEditor(markId)
   }
@@ -106,9 +115,14 @@ export default function CommentsSidebar({ editor, docId, canEdit, onClose }: Pro
               )}
               <button
                 onClick={() => handleDelete(c._id as Id<'comments'>, c.markId)}
-                className="flex-1 py-1 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                onBlur={() => setConfirmingDelete((cur) => (cur === c._id ? null : cur))}
+                className={`flex-1 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  confirmingDelete === c._id
+                    ? 'text-white bg-red-600 hover:bg-red-700'
+                    : 'text-red-600 bg-red-50 hover:bg-red-100'
+                }`}
               >
-                Delete
+                {confirmingDelete === c._id ? 'Really delete?' : 'Delete'}
               </button>
             </div>
           </div>

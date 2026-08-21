@@ -2,7 +2,7 @@
 
 import { useQuery, useConvexAuth } from 'convex/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { documentQueries } from '@/lib/services'
 import type { DocumentSummary } from '@/lib/services/types'
 import DocumentCard from '@/components/dashboard/DocumentCard'
@@ -58,13 +58,25 @@ export default function DashboardPage() {
   )
   const trashResult = useQuery(documentQueries.listTrash)
 
-  const documents = useMemo(() => {
-    const source = searching ? searchResult?.documents : result?.documents
-    if (source === undefined) return undefined
-    return source.filter((doc) => matchesFilter(doc, filter))
-  }, [searching, searchResult, result, filter])
+  // Each new query string opens a fresh subscription that starts undefined.
+  // Holding the previous results keeps the grid steady while the next answer
+  // loads, instead of flashing the skeleton on every debounced keystroke.
+  const lastSearchDocs = useRef<DocumentSummary[] | undefined>(undefined)
+  if (searchResult !== undefined) lastSearchDocs.current = searchResult.documents
+  if (!searching) lastSearchDocs.current = undefined
+
+  const searchPending = searching && searchResult === undefined
+  const source = searching
+    ? searchResult?.documents ?? lastSearchDocs.current
+    : result?.documents
+  const documents = source?.filter((doc) => matchesFilter(doc, filter))
 
   const trashCount = trashResult?.documents.length ?? 0
+
+  function clearSearch() {
+    setSearchText('')
+    setDebouncedSearch('')
+  }
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -92,12 +104,25 @@ export default function DashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
-                type="search"
+                type="text"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') clearSearch() }}
                 placeholder="Search documents…"
-                className="w-56 text-sm bg-white border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-blue-400 transition-colors"
+                aria-label="Search documents"
+                className="w-56 text-sm bg-white border border-gray-200 rounded-lg pl-8 pr-8 py-1.5 outline-none focus:border-blue-400 transition-colors"
               />
+              {searchPending ? (
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              ) : searchText ? (
+                <button
+                  onClick={clearSearch}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              ) : null}
             </div>
           )}
 

@@ -18,6 +18,7 @@ import type * as logging from "../logging.js";
 import type * as presence from "../presence.js";
 import type * as seed from "../seed.js";
 import type * as stars from "../stars.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   presence: typeof presence;
   seed: typeof seed;
   stars: typeof stars;
+  users: typeof users;
 }>;
 
 /**

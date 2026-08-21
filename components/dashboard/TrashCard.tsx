@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { TrashedDocumentSummary } from '@/lib/services/types'
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
 import { useToast } from '@/components/Toast'
-import { formatDate } from '@/lib/utils'
+import { formatRelativeDate } from '@/lib/utils'
 
 interface TrashCardProps {
   document: TrashedDocumentSummary
@@ -55,7 +55,7 @@ export default function TrashCard({ document }: TrashCardProps) {
       </div>
 
       <p className="font-medium text-gray-900 text-sm truncate">{document.title || 'Untitled Document'}</p>
-      <p className="text-xs text-gray-400 mt-0.5 mb-3">Trashed {formatDate(document.archivedAt)}</p>
+      <p className="text-xs text-gray-400 mt-0.5 mb-3">Trashed {formatRelativeDate(document.archivedAt)}</p>
 
       <div className="flex gap-2">
         {confirming ? (

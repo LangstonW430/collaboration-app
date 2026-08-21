@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from 'convex/react'
 import type { Id } from '@/convex/_generated/dataModel'
 import { collaborationQueries } from '@/lib/services'
@@ -20,6 +20,15 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
 
   const data = useQuery(collaborationQueries.listForDoc, { docId })
   const { invite, removeCollaborator } = useDocumentService()
+
+  // A dialog closes on Escape.
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose])
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
@@ -50,10 +59,15 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invite-modal-title"
+        className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Share document</h2>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+          <h2 id="invite-modal-title" className="font-semibold text-gray-900">Share document</h2>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -68,6 +82,8 @@ export default function InviteModal({ docId, onClose }: InviteModalProps) {
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(null); setSuccess(false) }}
                 placeholder="Email address"
+                aria-label="Email address"
+                autoFocus
                 className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                 required
               />

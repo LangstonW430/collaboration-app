@@ -19,6 +19,11 @@ export const presenceQueries = {
   activeUsers: api.presence.activeUsers,
 } as const;
 
+export const userQueries = {
+  /** The signed-in user's own name and email (null when signed out). */
+  me: api.users.me,
+} as const;
+
 export const fileQueries = {
   /** Signed URL for a stored image given its Convex storage ID. */
   getImageUrl: api.files.getImageUrl,

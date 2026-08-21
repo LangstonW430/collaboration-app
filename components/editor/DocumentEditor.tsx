@@ -896,7 +896,7 @@ function Btn({ onClick, active, title, disabled, children }: BtnProps) {
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className={`shrink-0 p-1.5 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+      className={`shrink-0 p-1.5 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
         active ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
       }`}
     >
@@ -909,7 +909,7 @@ function TblBtn({ onClick, children, danger }: { onClick: () => void; children: 
   return (
     <button
       onClick={onClick}
-      className={`text-xs px-2 py-0.5 rounded-md transition-colors ${danger ? 'text-red-500 hover:bg-red-50' : 'text-gray-600 hover:bg-gray-200'}`}
+      className={`text-xs px-2 py-0.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${danger ? 'text-red-500 hover:bg-red-50' : 'text-gray-600 hover:bg-gray-200'}`}
     >
       {children}
     </button>

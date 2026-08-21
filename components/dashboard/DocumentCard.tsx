@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { DocumentSummary } from '@/lib/services/types'
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
 import { useToast } from '@/components/Toast'
-import { formatDate } from '@/lib/utils'
+import { formatRelativeDate } from '@/lib/utils'
 
 interface DocumentCardProps {
   document: DocumentSummary
@@ -132,20 +132,20 @@ export default function DocumentCard({ document }: DocumentCardProps) {
               <button
                 onClick={handleToggleStar}
                 data-testid="star-button"
-                className={`p-1.5 rounded-md transition-all ${starred ? 'text-amber-400 hover:text-amber-500' : 'text-gray-300 hover:text-amber-400 hover:bg-amber-50 opacity-0 group-hover:opacity-100'}`}
+                className={`p-1.5 rounded-md transition-all ${starred ? 'text-amber-400 hover:text-amber-500' : 'text-gray-300 hover:text-amber-400 hover:bg-amber-50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'}`}
                 title={starred ? 'Unstar' : 'Star'}
               >
                 <svg className="w-3.5 h-3.5" fill={starred ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
               </button>
-              <button onClick={handleDuplicate} className="p-1.5 rounded-md text-gray-300 hover:text-blue-500 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-all" title="Duplicate document">
+              <button onClick={handleDuplicate} className="p-1.5 rounded-md text-gray-300 hover:text-blue-500 hover:bg-blue-50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-all" title="Duplicate document">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
               </button>
               {isOwner && (
                 <>
-                  <button onClick={handleRenameClick} className="p-1.5 rounded-md text-gray-300 hover:text-blue-500 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-all" title="Rename document">
+                  <button onClick={handleRenameClick} className="p-1.5 rounded-md text-gray-300 hover:text-blue-500 hover:bg-blue-50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-all" title="Rename document">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                   </button>
-                  <button onClick={handleDelete} className="p-1.5 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all" title="Move to trash">
+                  <button onClick={handleDelete} className="p-1.5 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-all" title="Move to trash">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </>
@@ -175,7 +175,7 @@ export default function DocumentCard({ document }: DocumentCardProps) {
           ) : (
             <p className="font-medium text-gray-900 text-sm truncate group-hover:text-blue-600 transition-colors">{titleValue}</p>
           )}
-          <p className="text-xs text-gray-400 mt-0.5">{formatDate(document.updatedAt)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Edited {formatRelativeDate(document.updatedAt)}</p>
         </div>
       </div>
     </Link>

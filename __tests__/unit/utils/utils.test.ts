@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { debounce, formatDate } from '@/lib/utils'
+import { debounce, formatDate, formatRelativeDate } from '@/lib/utils'
 
 describe('debounce', () => {
   beforeEach(() => {
@@ -66,5 +66,29 @@ describe('formatDate', () => {
 
   it('returns a non-empty string for valid input', () => {
     expect(formatDate(new Date(2020, 11, 31).getTime())).toBeTruthy()
+  })
+})
+
+describe('formatRelativeDate', () => {
+  const now = new Date(2026, 5, 15, 12, 0, 0).getTime()
+
+  it('reports moments ago as "just now"', () => {
+    expect(formatRelativeDate(now - 5_000, now)).toBe('just now')
+  })
+
+  it('reports minutes, hours and days for recent times', () => {
+    expect(formatRelativeDate(now - 5 * 60_000, now)).toBe('5m ago')
+    expect(formatRelativeDate(now - 3 * 3_600_000, now)).toBe('3h ago')
+    expect(formatRelativeDate(now - 2 * 86_400_000, now)).toBe('2d ago')
+  })
+
+  it('falls back to a calendar date after a week', () => {
+    const result = formatRelativeDate(now - 30 * 86_400_000, now)
+    expect(result).toMatch(/May/)
+    expect(result).toMatch(/2026/)
+  })
+
+  it('treats a slightly future timestamp as "just now" rather than negative', () => {
+    expect(formatRelativeDate(now + 2_000, now)).toBe('just now')
   })
 })

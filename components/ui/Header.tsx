@@ -2,11 +2,15 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useQuery } from 'convex/react'
 import { useAuthActions } from '@convex-dev/auth/react'
+import { userQueries } from '@/lib/services'
 
 export default function Header() {
   const { signOut } = useAuthActions()
   const router = useRouter()
+  const me = useQuery(userQueries.me)
+  const identity = me?.name || me?.email || null
 
   async function handleSignOut() {
     await signOut()
@@ -27,12 +31,22 @@ export default function Header() {
           </span>
         </Link>
 
-        <button
-          onClick={handleSignOut}
-          className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-3">
+          {identity && (
+            <div className="flex items-center gap-2" title={`Signed in as ${identity}`}>
+              <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold flex items-center justify-center">
+                {identity.charAt(0).toUpperCase()}
+              </span>
+              <span className="hidden sm:block text-sm text-gray-500 max-w-48 truncate">{identity}</span>
+            </div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </header>
   )
