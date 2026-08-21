@@ -37,7 +37,7 @@ import { saveDocumentArgsSchema, createCommentArgsSchema } from '@/lib/validatio
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
 import { usePresence } from '@/lib/hooks/usePresence'
 import type { PresenceUser } from '@/lib/services/types'
-import { buildHtmlExport, downloadFile, toFilename } from '@/lib/export/exportDocument'
+import { buildHtmlExport, buildPrintHtml, downloadFile, openPrintWindow, toFilename } from '@/lib/export/exportDocument'
 import { ConvexImageExtension } from './extensions/ConvexImageExtension'
 import { ChartExtension } from './extensions/ChartExtension'
 import { CommentMark } from './extensions/CommentMark'
@@ -46,6 +46,9 @@ import CommentsSidebar from './CommentsSidebar'
 const lowlight = createLowlight(common)
 
 const AUTOSAVE_DELAY_MS = 1000
+
+/** Remembers the reader's page-view choice across documents and sessions. */
+const PAGE_VIEW_STORAGE_KEY = 'collabdocs:pageView'
 
 const TEXT_COLORS = [
   '#000000', '#374151', '#6b7280', '#9ca3af',
@@ -108,6 +111,26 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   }, [doc.title])
   const [showInvite, setShowInvite] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
+  const [pageView, setPageView] = useState(false)
+  const editorContainerRef = useRef<HTMLDivElement>(null)
+
+  // Restore the saved preference after mount; localStorage can throw in
+  // private windows, and the default (continuous view) is fine without it.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(PAGE_VIEW_STORAGE_KEY) === '1') setPageView(true)
+    } catch { /* keep the default */ }
+  }, [])
+
+  function togglePageView() {
+    setPageView((current) => {
+      const next = !current
+      try {
+        localStorage.setItem(PAGE_VIEW_STORAGE_KEY, next ? '1' : '0')
+      } catch { /* the toggle still works for this session */ }
+      return next
+    })
+  }
   const [dropdown, setDropdown] = useState<DropdownState | null>(null)
   const [commentText, setCommentText] = useState('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -379,6 +402,49 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     downloadFile(toFilename(title, 'txt'), 'text/plain', `${heading}\n\n${editor.getText()}`)
   }
 
+  /**
+   * The document as it looks on screen, ready for printing: taken from the
+   * live DOM rather than editor.getHTML() so charts (canvas) and images
+   * (resolved signed URLs) come along. Canvases are snapshotted to PNGs and
+   * interactive chrome (node-view buttons) is stripped from the copy.
+   */
+  function captureEditorHtml(): string | null {
+    const root = editorContainerRef.current?.querySelector('.ProseMirror')
+    if (!root) return null
+
+    const clone = root.cloneNode(true) as HTMLElement
+
+    const liveCanvases = root.querySelectorAll('canvas')
+    const clonedCanvases = clone.querySelectorAll('canvas')
+    liveCanvases.forEach((canvas, i) => {
+      const cloned = clonedCanvases[i]
+      if (!cloned) return
+      try {
+        const img = document.createElement('img')
+        img.src = canvas.toDataURL('image/png')
+        img.style.maxWidth = '100%'
+        cloned.replaceWith(img)
+      } catch {
+        // A canvas that cannot be serialized is dropped rather than printed blank.
+        cloned.remove()
+      }
+    })
+
+    clone.querySelectorAll('button').forEach((btn) => btn.remove())
+
+    return clone.innerHTML
+  }
+
+  function exportPdf() {
+    closeDropdown()
+    if (!editor) return
+    const contentHtml = captureEditorHtml() ?? editor.getHTML()
+    const opened = openPrintWindow(buildPrintHtml(title, contentHtml))
+    if (!opened) {
+      toast.error('Your browser blocked the PDF window. Allow pop-ups for this site and try again.')
+    }
+  }
+
   function openCommentPanel(e: React.MouseEvent<HTMLButtonElement>) {
     if (!editor) return
     const { from, to, empty } = editor.state.selection
@@ -600,6 +666,19 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
               <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md">View only</span>
             )}
 
+            {/* Page view toggle */}
+            <button
+              onClick={togglePageView}
+              title={pageView ? 'Switch to continuous view' : 'Switch to page view'}
+              aria-pressed={pageView}
+              className={`shrink-0 p-1.5 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${pageView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="3" width="12" height="18" rx="1" strokeWidth={2} />
+                <path strokeLinecap="round" strokeWidth={2} d="M9 8h6M9 12h6M9 16h4" />
+              </svg>
+            </button>
+
             {/* Export dropdown trigger */}
             <button
               onClick={(e) => toggleDropdown('export', e)}
@@ -712,6 +791,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
 
           {dropdown.name === 'export' && (
             <div className="bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-44">
+              <InsertItem label="Download as PDF" icon="🖨️" onClick={exportPdf} />
               <InsertItem label="Download as HTML" icon="🌐" onClick={exportHtml} />
               <InsertItem label="Download as text" icon="📄" onClick={exportText} />
             </div>
@@ -783,8 +863,8 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
       {/* Content row */}
       <div className="flex flex-1 overflow-hidden">
         {/* Document body */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl w-full mx-auto px-8 py-12">
+        <div className={`flex-1 overflow-y-auto ${pageView ? 'bg-gray-100' : ''}`}>
+          <div className={pageView ? 'page-sheet' : 'max-w-3xl w-full mx-auto px-8 py-12'}>
             <input
               type="text"
               value={title}
@@ -793,7 +873,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
               placeholder="Untitled Document"
               className={`w-full text-4xl font-bold text-gray-900 bg-transparent border-none outline-none mb-8 placeholder:text-gray-200 ${!canEdit ? 'cursor-default' : ''}`}
             />
-            <div className="tiptap-editor">
+            <div className="tiptap-editor" ref={editorContainerRef}>
               <EditorContent editor={editor} />
             </div>
           </div>

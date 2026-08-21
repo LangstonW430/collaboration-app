@@ -17,6 +17,30 @@
   .toast-enter { animation: none; }
 }
 
+/* ── Page view ────────────────────────────────────────────────────────────── */
+/* The document rendered as a paper sheet on a desk, US Letter proportions.
+   Content still flows continuously — the sheet grows with it — but width,
+   margins and typography match what printing (and the PDF export) produces. */
+
+.page-sheet {
+  width: 8.5in;
+  max-width: 100%;
+  min-height: 11in;
+  margin: 2rem auto;
+  padding: 1in;
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 900px) {
+  .page-sheet {
+    margin: 1rem auto;
+    padding: 1.5rem;
+    min-height: auto;
+  }
+}
+
 /* ── Base editor ──────────────────────────────────────────────────────────── */
 
 .tiptap-editor .ProseMirror {

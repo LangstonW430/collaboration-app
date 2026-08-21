@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHtmlExport, toFilename } from '@/lib/export/exportDocument'
+import { buildHtmlExport, buildPrintHtml, toFilename } from '@/lib/export/exportDocument'
 
 describe('buildHtmlExport', () => {
   it('produces a standalone page carrying the document body', () => {
@@ -17,6 +17,25 @@ describe('buildHtmlExport', () => {
 
   it('falls back to a default title when the document has none', () => {
     expect(buildHtmlExport('', '<p>x</p>')).toContain('<title>Untitled Document</title>')
+  })
+})
+
+describe('buildPrintHtml', () => {
+  it('carries the content and prints itself once loaded', () => {
+    const html = buildPrintHtml('My Doc', '<p>Body text</p>')
+    expect(html).toContain('<p>Body text</p>')
+    expect(html).toContain('window.print()')
+    expect(html).toContain('@page')
+  })
+
+  it('escapes the title', () => {
+    const html = buildPrintHtml('<img onerror=x>', '<p>x</p>')
+    expect(html).not.toContain('<img onerror')
+    expect(html).toContain('&lt;img onerror=x&gt;')
+  })
+
+  it('neutralizes comment highlights so working state stays out of the PDF', () => {
+    expect(buildPrintHtml('T', '<p>x</p>')).toContain('mark.comment-mark')
   })
 })
 

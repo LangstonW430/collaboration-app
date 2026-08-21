@@ -19,7 +19,10 @@ A real-time collaborative document editor built with Next.js, Convex, and TipTap
 - **Trash** — deleting moves a document to the trash, where it can be restored
   (collaborator access included) or permanently deleted
 - **Duplicate** — copy any document you can read into your own account
-- **Export** — download a document as a standalone HTML page or plain text
+- **Page view** — optionally render the document as US Letter pages, matching
+  what printing produces; the choice is remembered per browser
+- **Export** — download a document as a PDF (via the browser's print dialog,
+  charts and images included), a standalone HTML page, or plain text
 - **Autosave** — changes save automatically with visible sync status, offline
   detection, and rate limiting
 

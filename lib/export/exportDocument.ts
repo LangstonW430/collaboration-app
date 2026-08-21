@@ -10,6 +10,19 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/** Typography shared by the HTML download and the PDF print page. */
+const BASE_STYLES = `
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; line-height: 1.65; }
+  h1.doc-title { font-size: 2.25rem; margin: 0 0 2rem; }
+  img { max-width: 100%; height: auto; }
+  pre { background: #f3f4f6; border-radius: 8px; padding: 1rem; overflow-x: auto; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+  blockquote { border-left: 3px solid #d1d5db; margin-left: 0; padding-left: 1rem; color: #4b5563; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; }
+  ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+`
+
 /**
  * Wraps the editor's HTML in a minimal standalone page, so the download opens
  * readably in a browser rather than as an unstyled fragment.
@@ -23,15 +36,8 @@ export function buildHtmlExport(title: string, contentHtml: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${safeTitle}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 48rem; margin: 0 auto; padding: 3rem 1.5rem; line-height: 1.65; }
-  h1.doc-title { font-size: 2.25rem; margin: 0 0 2rem; }
-  img { max-width: 100%; height: auto; }
-  pre { background: #f3f4f6; border-radius: 8px; padding: 1rem; overflow-x: auto; }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
-  blockquote { border-left: 3px solid #d1d5db; margin-left: 0; padding-left: 1rem; color: #4b5563; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; }
-  ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+${BASE_STYLES}
+  body { max-width: 48rem; margin: 0 auto; padding: 3rem 1.5rem; }
 </style>
 </head>
 <body>
@@ -40,6 +46,56 @@ ${contentHtml}
 </body>
 </html>
 `
+}
+
+/**
+ * A print-ready page that opens the browser's print dialog as soon as it has
+ * loaded, so "save as PDF" is one click away and the browser does the
+ * pagination. The window title becomes the suggested PDF filename.
+ */
+export function buildPrintHtml(title: string, contentHtml: string): string {
+  const safeTitle = escapeHtml(title || 'Untitled Document')
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${safeTitle}</title>
+<style>
+${BASE_STYLES}
+  @page { size: letter; margin: 1in; }
+  html, body { margin: 0; padding: 0; }
+  /* Keep chart images, highlights and code backgrounds in the PDF. */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1, h2, h3 { break-after: avoid; }
+  pre, blockquote, table, img { break-inside: avoid; }
+  /* Comment highlights are working state, not document content. */
+  mark.comment-mark { background: none; border-bottom: none; }
+</style>
+</head>
+<body>
+<h1 class="doc-title">${safeTitle}</h1>
+${contentHtml}
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () { window.print(); }, 150);
+  });
+  window.addEventListener('afterprint', function () { window.close(); });
+</script>
+</body>
+</html>
+`
+}
+
+/**
+ * Opens `html` in a new window (where its auto-print script runs). Returns
+ * false when a pop-up blocker stopped it, so the caller can tell the user.
+ */
+export function openPrintWindow(html: string): boolean {
+  const win = window.open('', '_blank')
+  if (!win) return false
+  win.document.write(html)
+  win.document.close()
+  return true
 }
 
 /**
