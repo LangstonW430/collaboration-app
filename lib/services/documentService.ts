@@ -8,6 +8,15 @@ export const documentQueries = {
   list: api.documents.list,
   /** Single document by ID (null if not found / not authorised). */
   get: api.documents.get,
+  /** Full-content search over the same documents `list` shows. */
+  search: api.documents.search,
+  /** The caller's trashed documents, most recently trashed first. */
+  listTrash: api.documents.listTrash,
+} as const;
+
+export const presenceQueries = {
+  /** Other users currently viewing a document. */
+  activeUsers: api.presence.activeUsers,
 } as const;
 
 export const fileQueries = {

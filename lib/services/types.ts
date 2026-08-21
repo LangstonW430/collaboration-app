@@ -36,12 +36,26 @@ export interface DocumentSummary {
   createdAt: number;
   updatedAt: number;
   userRole: UserRole;
+  /** Whether the current user has starred this document. */
+  starred: boolean;
+}
+
+/** A trashed document as documents.listTrash returns it. */
+export interface TrashedDocumentSummary extends DocumentSummary {
+  archivedAt: number;
 }
 
 /** What documents.list returns, with a flag for documents it left out. */
 export interface DocumentList {
   documents: DocumentSummary[];
   truncated: boolean;
+}
+
+/** Another user currently viewing a document. */
+export interface PresenceUser {
+  userId: Id<"users">;
+  name: string | null;
+  email: string | null;
 }
 
 export interface DocumentUpdate {
@@ -106,6 +120,16 @@ export interface DocumentMutations {
   update(id: Id<"documents">, updates: DocumentUpdate): Promise<{ updatedAt: number }>;
   /** Permanently delete an owned document. */
   remove(id: Id<"documents">): Promise<void>;
+  /** Move an owned document to the trash; collaborators lose access. */
+  archive(id: Id<"documents">): Promise<void>;
+  /** Bring a trashed document back, collaborator access included. */
+  restore(id: Id<"documents">): Promise<void>;
+  /** Copy a readable document into the caller's account; resolves with the copy's ID. */
+  duplicate(id: Id<"documents">): Promise<Id<"documents">>;
+  /** Star or unstar a document; resolves with the new state. */
+  toggleStar(docId: Id<"documents">): Promise<{ starred: boolean }>;
+  /** Record that the caller is currently viewing the document. */
+  heartbeat(docId: Id<"documents">): Promise<void>;
   /**
    * Return a short-lived signed URL for direct file upload to Convex storage.
    * Scoped to a document the caller can edit.

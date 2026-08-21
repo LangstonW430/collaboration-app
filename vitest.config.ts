@@ -58,6 +58,7 @@ export default defineConfig({
         // React hooks and context providers — require Convex/Auth providers in test env
         'lib/hooks/useDocumentService.tsx',
         'lib/hooks/useAuthService.tsx',
+        'lib/hooks/usePresence.ts',
         'lib/context/ConnectionContext.tsx',
         'lib/hooks/useConnectionStatus.ts',
         'lib/hooks/useConvexError.ts',

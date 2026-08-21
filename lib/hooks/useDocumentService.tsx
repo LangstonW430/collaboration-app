@@ -21,6 +21,11 @@ export function DocumentServiceProvider({ children }: { children: ReactNode }) {
   const _create = useMutation(api.documents.create);
   const _update = useMutation(api.documents.update);
   const _remove = useMutation(api.documents.remove);
+  const _archive = useMutation(api.documents.archive);
+  const _restore = useMutation(api.documents.restore);
+  const _duplicate = useMutation(api.documents.duplicate);
+  const _toggleStar = useMutation(api.stars.toggle);
+  const _heartbeat = useMutation(api.presence.heartbeat);
 
   // File mutations
   const _generateUploadUrl = useMutation(api.files.generateUploadUrl);
@@ -53,6 +58,19 @@ export function DocumentServiceProvider({ children }: { children: ReactNode }) {
 
       remove: (id: Id<"documents">) =>
         _remove({ id }).then(() => undefined),
+
+      archive: (id: Id<"documents">) =>
+        _archive({ id }).then(() => undefined),
+
+      restore: (id: Id<"documents">) =>
+        _restore({ id }).then(() => undefined),
+
+      duplicate: (id: Id<"documents">) => _duplicate({ id }),
+
+      toggleStar: (docId: Id<"documents">) => _toggleStar({ docId }),
+
+      heartbeat: (docId: Id<"documents">) =>
+        _heartbeat({ docId }).then(() => undefined),
 
       // ── File ─────────────────────────────────────────────────────────────
       generateUploadUrl: (docId: Id<"documents">) => _generateUploadUrl({ docId }),
@@ -88,6 +106,7 @@ export function DocumentServiceProvider({ children }: { children: ReactNode }) {
     }),
     [
       _create, _update, _remove,
+      _archive, _restore, _duplicate, _toggleStar, _heartbeat,
       _generateUploadUrl,
       _createComment, _resolveComment, _deleteComment,
       _invite, _acceptInvite, _declineInvite, _removeCollaborator,

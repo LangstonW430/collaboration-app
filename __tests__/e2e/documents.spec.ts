@@ -108,9 +108,9 @@ test.describe('Document management', () => {
     await expect(page.getByText(title)).toBeVisible({ timeout: 10_000 })
   })
 
-  // ── delete document ────────────────────────────────────────────────────────
+  // ── trash ──────────────────────────────────────────────────────────────────
 
-  test('user can delete a document from the dashboard', async ({ page }) => {
+  test('user can trash a document and permanently delete it from the trash', async ({ page }) => {
     test.setTimeout(60_000)
     const title = `Delete Me ${Date.now()}`
 
@@ -123,15 +123,23 @@ test.describe('Document management', () => {
     await page.getByTitle('Back to dashboard').click()
     await page.waitForURL('**/dashboard', { timeout: 10_000 })
 
-    // Find the document card and click the delete icon (title="Delete document")
+    // Find the document card and click the trash icon (title="Move to trash")
     const card = page.locator('[data-testid="document-card"]').filter({ hasText: title }).first()
     await expect(card).toBeVisible({ timeout: 15_000 })
     await card.hover()
-    await card.getByTitle('Delete document').click()
+    await card.getByTitle('Move to trash').click()
 
-    // Confirm deletion — second click on the "Delete" text button inside the same card
-    await card.getByRole('button', { name: 'Delete' }).click()
+    // Confirm — second click on the "Move to trash" text button inside the same card
+    await card.getByRole('button', { name: 'Move to trash' }).click()
 
+    await expect(page.getByText(title)).not.toBeVisible({ timeout: 8_000 })
+
+    // The document is now in the trash, where it can be permanently deleted
+    await page.getByTestId('trash-toggle').click()
+    const trashCard = page.locator('[data-testid="trash-card"]').filter({ hasText: title }).first()
+    await expect(trashCard).toBeVisible({ timeout: 10_000 })
+    await trashCard.getByRole('button', { name: 'Delete forever' }).click()
+    await trashCard.getByRole('button', { name: 'Delete forever' }).click()
     await expect(page.getByText(title)).not.toBeVisible({ timeout: 8_000 })
   })
 })

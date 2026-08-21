@@ -12,11 +12,40 @@ export default defineSchema({
     ownerId: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // Set when the owner moves the document to the trash. Absent on live
+    // documents, so an eq(undefined) index lookup selects exactly those.
+    archivedAt: v.optional(v.number()),
   })
     .index("by_owner", ["ownerId"])
     // Matches the order the dashboard shows, so taking a page keeps the
     // documents the user most recently worked on.
-    .index("by_owner_and_updated", ["ownerId", "updatedAt"]),
+    .index("by_owner_and_updated", ["ownerId", "updatedAt"])
+    // Lets the dashboard page through live documents without archived ones
+    // crowding them out of the take() window, and vice versa for the trash.
+    .index("by_owner_and_archived_and_updated", ["ownerId", "archivedAt", "updatedAt"]),
+
+  // One row per (user, document) the user has starred. A separate table rather
+  // than a field on documents because starring is per-user: two collaborators
+  // can star the same document independently.
+  stars: defineTable({
+    userId: v.id("users"),
+    docId: v.id("documents"),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_doc", ["userId", "docId"])
+    .index("by_doc", ["docId"]),
+
+  // Who is looking at which document right now. High-churn heartbeat data,
+  // kept away from the documents table so presence writes never contend with
+  // document reads. Rows go stale rather than being deleted on tab close —
+  // heartbeat() prunes them opportunistically.
+  presence: defineTable({
+    docId: v.id("documents"),
+    userId: v.id("users"),
+    lastSeen: v.number(),
+  })
+    .index("by_doc", ["docId"])
+    .index("by_doc_and_user", ["docId", "userId"]),
 
   collaborators: defineTable({
     docId: v.id("documents"),

@@ -35,6 +35,9 @@ import { checkRateLimit } from '@/lib/rateLimit'
 import { measureOperation } from '@/lib/monitoring/performance'
 import { saveDocumentArgsSchema, createCommentArgsSchema } from '@/lib/validation'
 import { useDocumentService } from '@/lib/hooks/useDocumentService'
+import { usePresence } from '@/lib/hooks/usePresence'
+import type { PresenceUser } from '@/lib/services/types'
+import { buildHtmlExport, downloadFile, toFilename } from '@/lib/export/exportDocument'
 import { ConvexImageExtension } from './extensions/ConvexImageExtension'
 import { ChartExtension } from './extensions/ChartExtension'
 import { CommentMark } from './extensions/CommentMark'
@@ -61,7 +64,7 @@ interface DocumentEditorProps {
   document: DocumentWithRole
 }
 
-type DropdownName = 'color' | 'highlight' | 'heading' | 'insert' | 'align' | 'comment'
+type DropdownName = 'color' | 'highlight' | 'heading' | 'insert' | 'align' | 'comment' | 'export'
 interface DropdownState {
   name: DropdownName
   top: number
@@ -132,6 +135,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
   )
   const { isOnline } = useConnectionStatus()
   const toast = useToast()
+  const activeUsers = usePresence(doc._id)
 
   const editorEditable = canEdit && isOnline
 
@@ -362,6 +366,19 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
     closeDropdown()
   }
 
+  function exportHtml() {
+    closeDropdown()
+    if (!editor) return
+    downloadFile(toFilename(title, 'html'), 'text/html', buildHtmlExport(title, editor.getHTML()))
+  }
+
+  function exportText() {
+    closeDropdown()
+    if (!editor) return
+    const heading = title || 'Untitled Document'
+    downloadFile(toFilename(title, 'txt'), 'text/plain', `${heading}\n\n${editor.getText()}`)
+  }
+
   function openCommentPanel(e: React.MouseEvent<HTMLButtonElement>) {
     if (!editor) return
     const { from, to, empty } = editor.state.selection
@@ -561,6 +578,7 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-3 shrink-0">
+            {activeUsers.length > 0 && <PresenceAvatars users={activeUsers} />}
             {!isOnline && (
               <span className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -581,6 +599,17 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
             {!canEdit && (
               <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-md">View only</span>
             )}
+
+            {/* Export dropdown trigger */}
+            <button
+              onClick={(e) => toggleDropdown('export', e)}
+              title="Export document"
+              className={`shrink-0 p-1.5 rounded-md transition-colors ${isOpen('export') ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
 
             {/* Comments sidebar toggle */}
             <button
@@ -678,6 +707,13 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
               <InsertItem label="Chart" icon="📊" onClick={insertChart} />
               <InsertItem label="YouTube video" icon="▶️" onClick={insertYoutube} />
               <InsertItem label="Divider" icon="—" onClick={insertHr} />
+            </div>
+          )}
+
+          {dropdown.name === 'export' && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-xl py-1 min-w-44">
+              <InsertItem label="Download as HTML" icon="🌐" onClick={exportHtml} />
+              <InsertItem label="Download as text" icon="📄" onClick={exportText} />
             </div>
           )}
 
@@ -801,6 +837,46 @@ export default function DocumentEditor({ document: doc }: DocumentEditorProps) {
 }
 
 // ── Small UI primitives ──────────────────────────────────────────────────────
+
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500',
+  'bg-amber-500', 'bg-cyan-500', 'bg-fuchsia-500', 'bg-lime-600',
+]
+
+/** The same user always gets the same color, on every viewer's screen. */
+function avatarColor(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) | 0
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+function presenceLabel(user: PresenceUser): string {
+  return user.name || user.email || 'Someone'
+}
+
+/** Overlapping initialled circles for the other people viewing the document. */
+function PresenceAvatars({ users }: { users: PresenceUser[] }) {
+  const shown = users.slice(0, 4)
+  const overflow = users.length - shown.length
+  return (
+    <div className="flex items-center -space-x-1.5" data-testid="presence-avatars"
+      title={`Also viewing: ${users.map(presenceLabel).join(', ')}`}>
+      {shown.map((user) => (
+        <span
+          key={user.userId}
+          className={`w-6 h-6 rounded-full ${avatarColor(user.userId)} text-white text-[10px] font-semibold flex items-center justify-center ring-2 ring-white`}
+        >
+          {presenceLabel(user).charAt(0).toUpperCase()}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="w-6 h-6 rounded-full bg-gray-300 text-gray-700 text-[10px] font-semibold flex items-center justify-center ring-2 ring-white">
+          +{overflow}
+        </span>
+      )}
+    </div>
+  )
+}
 
 function Sep() {
   return <div className="w-px h-5 bg-gray-200 shrink-0 mx-0.5" />

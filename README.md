@@ -2,6 +2,27 @@
 
 A real-time collaborative document editor built with Next.js, Convex, and TipTap.
 
+## Features
+
+- **Rich text editing** — headings, lists, task lists, tables, code blocks with
+  syntax highlighting, images, charts, YouTube embeds, text color and highlights
+- **Real-time collaboration** — edits sync live between collaborators, with
+  conflict detection and presence avatars showing who else is viewing
+- **Sharing** — invite others by email as editor or viewer; invites are
+  accepted or declined from the dashboard
+- **Comments** — anchor comment threads to text selections, resolve or delete
+  them from the sidebar
+- **Search** — full-content search across every document you own or collaborate
+  on, straight from the dashboard
+- **Stars** — bookmark documents personally and filter the dashboard to
+  All / Owned / Shared / Starred
+- **Trash** — deleting moves a document to the trash, where it can be restored
+  (collaborator access included) or permanently deleted
+- **Duplicate** — copy any document you can read into your own account
+- **Export** — download a document as a standalone HTML page or plain text
+- **Autosave** — changes save automatically with visible sync status, offline
+  detection, and rate limiting
+
 ## Stack
 
 - **Frontend** — Next.js 15 (App Router), TypeScript, Tailwind CSS

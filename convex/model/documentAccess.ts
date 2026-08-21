@@ -53,6 +53,10 @@ export async function getDocumentAccess(
   const role = await resolveRole(ctx, doc, userId);
   if (!role) return null;
 
+  // A trashed document is visible only to its owner (who needs to see it to
+  // restore it). To collaborators it behaves as if it were already deleted.
+  if (doc.archivedAt !== undefined && role !== "owner") return null;
+
   return { userId, doc, role };
 }
 
@@ -76,6 +80,14 @@ export async function requireDocumentAccess(
   const role = await resolveRole(ctx, doc, userId);
   if (!role) throw new Error("Not authorized");
   if (level === "write" && !canWrite(role)) throw new Error("Not authorized");
+
+  // Same visibility rule as getDocumentAccess, plus: nobody edits a document
+  // in the trash — the owner restores it first. Restore and permanent delete
+  // themselves go through requireDocumentOwner, which asks for "read".
+  if (doc.archivedAt !== undefined) {
+    if (role !== "owner") throw new Error("Not authorized");
+    if (level === "write") throw new Error("Document is in the trash");
+  }
 
   return { userId, doc, role };
 }
