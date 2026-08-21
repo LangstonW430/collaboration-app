@@ -27,14 +27,42 @@ On first run this opens a browser to log in to Convex and create a project. It a
 
 ### 3. Set Convex environment variables
 
-In your [Convex dashboard](https://dashboard.convex.dev) → your project → **Settings → Environment Variables**, add:
+Use the official CLI — it generates the keys and writes them to the deployment
+in the exact format the auth library reads:
 
-| Variable | Description | How to get it |
-|---|---|---|
-| `JWT_PRIVATE_KEY` | RS256 private key for signing auth tokens | Run the keygen script below |
-| `JWKS` | Matching public key set for verifying tokens | Run the keygen script below |
+```bash
+npx @convex-dev/auth           # your dev deployment
+npx @convex-dev/auth --prod    # your production deployment
+```
 
-**Keygen script** — run once, then paste both values into the dashboard:
+It prompts for `SITE_URL` and sets three variables on the deployment:
+
+| Variable | Description |
+|---|---|
+| `SITE_URL` | Where the app is served from. `http://localhost:3000` for dev; the canonical public URL for production. Used to build links back into the app — password resets, email verification, OAuth callbacks. |
+| `JWT_PRIVATE_KEY` | RS256 private key for signing auth tokens |
+| `JWKS` | Matching public key set for verifying tokens |
+
+Each deployment needs its own. They live on the Convex deployment, not in
+`.env.local`, so a new deployment starts with none of them and nobody can log
+in until they are set. Generate separate keys per deployment rather than
+copying, so a leak in one cannot mint tokens for another.
+
+**Setting them by hand instead.** Paste the PEM exactly as generated, including
+its `-----BEGIN PRIVATE KEY-----` first line. Multi-line is fine. What breaks it
+is anything before that header — a leading space or newline, or surrounding
+quotes — because the auth library only accepts a value that *starts* with it.
+The same error appears when the variable was never saved at all:
+
+```
+Uncaught TypeError: "pkcs8" must be PKCS#8 formatted string
+    at importPKCS8 ... at generateToken
+```
+
+It surfaces at sign-in *after* the password has been accepted, so a correct
+login still fails. If you see it, check that `JWT_PRIVATE_KEY` is present on
+that deployment and begins with the header — or just re-run the CLI above,
+which is why it is the recommended path.
 
 ```bash
 node -e "
@@ -43,14 +71,12 @@ generateKeyPair('RS256').then(async ({ privateKey, publicKey }) => {
   const pem = await exportPKCS8(privateKey);
   const jwk = await exportJWK(publicKey);
   console.log('--- JWT_PRIVATE_KEY ---');
-  console.log(pem);
+  console.log(pem.trimEnd());
   console.log('--- JWKS ---');
-  console.log(JSON.stringify({ keys: [jwk] }));
+  console.log(JSON.stringify({ keys: [{ use: 'sig', ...jwk }] }));
 });
 "
 ```
-
-Paste `JWT_PRIVATE_KEY` as the full multi-line PEM block. Paste `JWKS` as the single-line JSON string.
 
 ### 4. Start the frontend
 
@@ -113,11 +139,45 @@ deployment**. If they point at different ones, CI deploys to one backend and
 tests against another, which reproduces the stale-backend failure it exists to
 prevent.
 
+## Deploying
+
+The frontend runs on Vercel, the backend on Convex. Set the Vercel build command
+to:
+
+```
+npx convex deploy --cmd 'npm run build'
+```
+
+That deploys the backend and then builds the frontend with the deployment's URL
+injected, so the two can never point at different places. Vercel needs
+`CONVEX_DEPLOY_KEY` for the target deployment; `app/providers.tsx` throws at
+import when `NEXT_PUBLIC_CONVEX_URL` is missing, so a plain `npm run build`
+fails without it.
+
+Use a **separate deployment from the one CI tests against**. The E2E suite
+creates and deletes documents on every run, and CI deploys to it on every push —
+neither is something to point at a live site.
+
+### Demo content
+
+A public deployment starts empty, which makes for a poor first impression. To
+fill a demo account, sign up through the app, then:
+
+```bash
+npx convex run seed:resetDemoContent '{"email":"demo@example.com"}' --prod
+```
+
+That replaces the account's documents with a sample set covering charts, tables,
+task lists, and comment threads. It is destructive and re-runnable, so it also
+serves to reset the demo after visitors have edited things. Point it only at a
+throwaway account — it deletes every document that account owns.
+
 ## Project structure
 
 ```
 convex/          Convex backend — schema, auth, document functions, their tests
 convex/model/    Shared backend logic: access checks, rate limits, audit trail
+convex/seed.ts   Demo content for a public deployment (internal, destructive)
 app/             Next.js App Router pages
 components/      React components (editor, dashboard, ui)
 lib/             Service layer, hooks, sync infrastructure, validation
