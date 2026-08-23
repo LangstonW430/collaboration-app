@@ -34,16 +34,16 @@ export default function InvitesBanner() {
   if (!invites || invites.length === 0) return null
 
   return (
-    <div className="mb-6 space-y-2">
+    <div className="mb-8 space-y-2.5">
       {invites.map((inv) => (
-        <div key={inv._id} className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 gap-4">
+        <div key={inv._id} className="flex items-center justify-between bg-[#fbf6e9] border border-[#ecdfc0] border-l-[3px] border-l-[#b7912f] rounded-lg px-4 py-3 gap-4 shadow-sm">
           <div className="min-w-0">
-            <p className="text-sm text-gray-800">
-              <span className="font-medium">{inv.inviterName}</span>
+            <p className="text-sm text-stone-700">
+              <span className="font-semibold text-[#1b1a17]">{inv.inviterName}</span>
               {' '}invited you to{' '}
-              <span className="font-medium">&ldquo;{inv.docTitle}&rdquo;</span>
+              <span className="font-display font-semibold text-[#1b1a17]">&ldquo;{inv.docTitle}&rdquo;</span>
               {' '}as{' '}
-              <span className="text-blue-700 font-medium">{inv.role}</span>
+              <span className="text-[#96751f] font-medium">{inv.role}</span>
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -52,7 +52,7 @@ export default function InvitesBanner() {
                 respond(inv._id as Id<'invites'>, acceptInvite, 'Could not accept this invite. It may have been withdrawn.')
               }
               disabled={busy === inv._id}
-              className="text-xs font-medium px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="text-xs font-medium px-3.5 py-1.5 bg-[#1b1a17] text-[#f7f6f2] rounded-full hover:bg-black transition-colors disabled:opacity-50"
             >
               Accept
             </button>
@@ -61,7 +61,7 @@ export default function InvitesBanner() {
                 respond(inv._id as Id<'invites'>, declineInvite, 'Could not decline this invite.')
               }
               disabled={busy === inv._id}
-              className="text-xs font-medium px-3 py-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              className="text-xs font-medium px-3.5 py-1.5 text-stone-500 hover:text-[#1b1a17] hover:bg-[#f3ead3] rounded-full transition-colors disabled:opacity-50"
             >
               Decline
             </button>

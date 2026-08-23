@@ -17,6 +17,69 @@
   .toast-enter { animation: none; }
 }
 
+/* ── Dashboard: premium desk ──────────────────────────────────────────────── */
+/* The dashboard reads as a writing desk: warm paper tones, a faint dot grid,
+   serif display type, and documents rendered as small paper sheets. */
+
+:root {
+  --desk: #f7f6f2;
+  --paper: #fffefb;
+  --ink: #1b1a17;
+  --ink-soft: #78716c;
+  --hairline: #e7e3da;
+  --hairline-strong: #d6d0c4;
+  --gilt: #b7912f;
+}
+
+.desk {
+  background-color: var(--desk);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(183, 145, 47, 0.06), transparent),
+    radial-gradient(rgba(27, 26, 23, 0.04) 1px, transparent 1px);
+  background-size: auto, 26px 26px;
+}
+
+.font-display {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua',
+    Georgia, 'Times New Roman', serif;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gilt);
+}
+
+/* A document card: a sheet of paper resting on the desk. */
+.doc-card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  box-shadow:
+    0 1px 2px rgba(27, 26, 23, 0.05),
+    0 4px 14px rgba(27, 26, 23, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.doc-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--hairline-strong);
+  box-shadow:
+    0 2px 4px rgba(27, 26, 23, 0.06),
+    0 14px 32px rgba(27, 26, 23, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-card, .doc-card:hover { transform: none; transition: none; }
+}
+
+/* The miniature page inside a card; body text fades out toward the bottom. */
+.doc-page-fade {
+  -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 98%);
+  mask-image: linear-gradient(to bottom, black 55%, transparent 98%);
+}
+
 /* ── Page view ────────────────────────────────────────────────────────────── */
 /* The document rendered as a paper sheet on a desk, US Letter proportions.
    Content still flows continuously — the sheet grows with it — but width,

@@ -31,14 +31,14 @@ export default function NewDocumentButton({ variant = 'default' }: NewDocumentBu
 
   if (variant === 'inline') {
     return (
-      <button onClick={handleCreate} disabled={loading} className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 transition-colors">
+      <button onClick={handleCreate} disabled={loading} className="text-sm text-[#1b1a17] font-medium underline underline-offset-4 decoration-[#d9c58c] decoration-2 hover:decoration-[#b7912f] disabled:opacity-50 transition-colors">
         {loading ? 'Creating…' : 'Create your first document →'}
       </button>
     )
   }
 
   return (
-    <button onClick={handleCreate} disabled={loading} className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+    <button onClick={handleCreate} disabled={loading} className="inline-flex items-center gap-2 bg-[#1b1a17] text-[#f7f6f2] px-5 py-2 rounded-full text-sm font-medium shadow-sm hover:bg-black hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all">
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
       </svg>

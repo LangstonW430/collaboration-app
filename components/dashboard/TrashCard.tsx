@@ -45,17 +45,21 @@ export default function TrashCard({ document }: TrashCardProps) {
   }
 
   return (
-    <div data-testid="trash-card" className="bg-white rounded-xl border border-gray-200 p-4 h-full flex flex-col">
-      <div className="flex-1 w-full h-28 bg-gray-50 rounded-lg mb-3 p-3 overflow-hidden">
+    <div data-testid="trash-card" className="doc-card rounded-xl p-3 h-full flex flex-col opacity-90">
+      <div className="flex-1 h-32 bg-white border border-[#eeece3] rounded-lg mb-3 px-4 pt-4 pb-2 overflow-hidden">
+        <p className="font-display text-[13px] font-semibold text-stone-500 truncate">{document.title || 'Untitled Document'}</p>
+        <div className="w-8 h-px bg-stone-200 my-2" />
         {document.preview ? (
-          <p className="text-xs text-gray-400 leading-relaxed line-clamp-5">{document.preview}</p>
+          <p className="doc-page-fade font-display text-[11px] leading-[1.8] text-stone-400 line-clamp-4">{document.preview}</p>
         ) : (
-          <p className="text-xs text-gray-300 italic">Empty document</p>
+          <p className="font-display text-[11px] italic text-stone-300">Empty document</p>
         )}
       </div>
 
-      <p className="font-medium text-gray-900 text-sm truncate">{document.title || 'Untitled Document'}</p>
-      <p className="text-xs text-gray-400 mt-0.5 mb-3">Trashed {formatRelativeDate(document.archivedAt)}</p>
+      <div className="px-1">
+        <p className="font-medium text-[#1b1a17] text-sm truncate">{document.title || 'Untitled Document'}</p>
+        <p className="text-xs text-stone-400 mt-1 mb-3">Trashed {formatRelativeDate(document.archivedAt)}</p>
+      </div>
 
       <div className="flex gap-2">
         {confirming ? (
@@ -63,14 +67,14 @@ export default function TrashCard({ document }: TrashCardProps) {
             <button
               onClick={handleDeleteForever}
               disabled={busy}
-              className="flex-1 text-xs px-2 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
+              className="flex-1 text-xs px-2 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
               {busy ? 'Deleting…' : 'Delete forever'}
             </button>
             <button
               onClick={() => setConfirming(false)}
               disabled={busy}
-              className="flex-1 text-xs px-2 py-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors"
+              className="flex-1 text-xs px-2 py-2 bg-white border border-[#e7e3da] text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
             >
               Cancel
             </button>
@@ -80,14 +84,14 @@ export default function TrashCard({ document }: TrashCardProps) {
             <button
               onClick={handleRestore}
               disabled={busy}
-              className="flex-1 text-xs px-2 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="flex-1 text-xs px-2 py-2 bg-[#1b1a17] text-[#f7f6f2] rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
             >
               Restore
             </button>
             <button
               onClick={handleDeleteForever}
               disabled={busy}
-              className="flex-1 text-xs px-2 py-1.5 text-red-600 border border-red-200 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors"
+              className="flex-1 text-xs px-2 py-2 text-red-600 border border-red-200 bg-white rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
             >
               Delete forever
             </button>
